@@ -14,6 +14,10 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 
 ## Usage
  - Find examples in Jupyter notebooks :)
+
+## Known issues
+ - Dimensionful units not implemented
+ - Convective schemes do not work properly
  
 ## Credit
 Goes to the wonderful jupyter notebooks and explanations by Philip Mocz
