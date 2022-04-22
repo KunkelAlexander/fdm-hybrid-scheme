@@ -1,19 +1,10 @@
-import cosmology
-import fv 
-import fd
-import fd_1d
-import fd_2d
+
 import numpy as np
-import tree
-import interpolation 
-import config as configuration
-import integration 
-import schemes 
-
-
 from enum import Enum
 import matplotlib.pyplot as plt
 
+import src.fd as fd
+import src.schemes as schemes
 
 """ DEFINE SIMULATION """
 
@@ -27,11 +18,10 @@ class PhaseScheme(schemes.SchroedingerScheme):
         self.fields[1] = fd.make_continuous(np.angle(self.psi))
         
         self.turnOffConvection      = config["turnOffConvection"]
-        self.turnOffQuantumPressure = config["turnOffQuantumPressure"]
+        self.turnOffDiffusion = config["turnOffDiffusion"]
 
         self.vmax = 0 
         self.amax = 0
-        self.cfl  = 1
 
     def getAdaptiveTimeStep(self):
         # Combination of 
@@ -42,7 +32,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
     def getDensity(self):
         return self.fields[0]
 
-    def getPhase(self):d
+    def getPhase(self):
         return self.fields[1]
 
     def setDensity(self, density):
@@ -68,7 +58,6 @@ class PhaseScheme(schemes.SchroedingerScheme):
         t3 = .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
         #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
         return np.min([t1, t2, t3])
-        #return self.cfl*self.eta*self.dx*self.dx/(1.0+self.eta*self.dx*self.vmax*self.dimension)
         
 
 class UpwindScheme(PhaseScheme):
@@ -158,7 +147,7 @@ class UpwindScheme(PhaseScheme):
 
             ### COMPUTE QUANTUM PRESSURE ###
 
-            if self.turnOffQuantumPressure == False:
+            if self.turnOffDiffusion == False:
                 dphase -= self.eta**2 * 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
 
             ### COMPUTE OSHER-SETHIAN-FLUX ###
@@ -176,7 +165,7 @@ class UpwindScheme(PhaseScheme):
         return "upwind scheme"
 
 #Get high-order upwind drift by dt
-def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffQuantumPressure = False):
+def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False):
     ddensity = np.zeros(density.shape)
     dphase   = np.zeros(phase.shape)
     limiter  = schemes.FluxLimiters.SMART
@@ -236,7 +225,7 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
         if not turnOffConvection:
             dphase   += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
 
-    if not turnOffQuantumPressure:
+    if not turnOffDiffusion:
         dphase  += fd.getHOSqrtQuantumPressure(density, dx, eta, c1_stencil, c1_coeff, c2_stencil, c2_coeff)
 
     return - dt * ddensity, - dt * dphase, vmax
@@ -253,9 +242,9 @@ class HOUpwindScheme(PhaseScheme):
         self.fields[1] -= dt/2 * self.potential
 
         u0 = self.fields 
-        ddensity1, dphase1, v2 = getHODrift(u0[0], u0[1], 1.0 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffQuantumPressure = self.turnOffQuantumPressure)
+        ddensity1, dphase1, v2 = getHODrift(u0[0], u0[1], 1.0 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
         u1 = u0 + np.array([ddensity1, dphase1])
-        ddensity2, dphase2, v1 = getHODrift(u1[0], u1[1], 0.5 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffQuantumPressure = self.turnOffQuantumPressure)
+        ddensity2, dphase2, v1 = getHODrift(u1[0], u1[1], 0.5 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
         self.fields = 0.5 * u0 + 0.5 * u1 + np.array([ddensity2, dphase2])
 
         #update potential
@@ -416,7 +405,6 @@ class LaxWendroffUpwindScheme(PhaseScheme):
 class ConvectiveScheme(PhaseScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-        self.cfl = 0.1
 
         self.fields[0] = 0.5 * np.log(self.fields[0])
         
@@ -535,14 +523,18 @@ class DonorCellConvectionScheme(ConvectiveScheme):
 
         return dfields
 
-class StableConvectiveScheme(ConvectiveScheme):
+class ConvectiveScheme(ConvectiveScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
+        self.turnOffConvection      = config["turnOffConvection"]
+        self.turnOffDiffusion       = config["turnOffDiffusion"]
+        self.turnOffSource          = config["turnOffSource"]
 
     def getUpdatedFields(self, dt, fields):
         sr, si = fields
         dx = self.dx
         density = np.exp(2 * sr)
+        self.vmax = 0
 
         dsi      = np.zeros(self.psi.shape)
         dsr      = np.zeros(self.psi.shape)
@@ -569,230 +561,33 @@ class StableConvectiveScheme(ConvectiveScheme):
             lapsr = fd.getDerivative(sr, dx, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2)
             lapsi = fd.getDerivative(si, dx, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2)
 
-            D_sr      =  0.5/dx
-            D_si      = -0.5/dx 
-            F_sr      =  vrc
-            F_si      =  vic 
-            peclet_sr =  F_sr /  D_sr
-            peclet_si =  F_si /  D_si
-            Ff_sr     =  vrf 
-            Fb_sr     =  vrb 
-            Ff_si     =  vif 
-            Fb_si     =  vib 
-
-            if (np.max(np.abs(peclet_sr)) > 2 or np.max(np.abs(peclet_si)) > 2):
-                print(f"Peclet S_r: max = {np.max(peclet_sr)} min = {np.min(peclet_sr)}, Peclet S_i: max = {np.max(peclet_si)} min = max = {np.min(peclet_si)}")
-
-            dsr += (
-                + 0.5 * lapsi
-                + 1.0 * vi * vr
-            )
-            dsi += (
-                - 0.5 * lapsr
-                + 1.0 * vi * vi
-                - 0.5 * (vi ** 2 + vr ** 2)
-            )
-
-
-            vrt += vr**2 
-            vit += vi**2
-
-
-        #c = np.logical_or((np.abs(dsi) > 10), np.abs(dsr) > 10)
+            #D_sr      =  0.5/dx
+            #D_si      = -0.5/dx 
+            #F_sr      =  vrc
+            #F_si      =  vic 
+            #peclet_sr =  F_sr /  D_sr
+            #peclet_si =  F_si /  D_si
+            #Ff_sr     =  vrf 
+            #Fb_sr     =  vrb 
+            #Ff_si     =  vif 
+            #Fb_si     =  vib 
 #
-        #dphase += dpot
-
-        #for i in range(self.dimension):
-        #    #Phase
-        #    p  = si
-        #    pp = np.roll(si, fd.ROLL_R, axis = i)
-        #    pm = np.roll(si, fd.ROLL_L, axis = i)
- #
-        #    #Density 
-        #    r  = density
-        #    rf = np.roll(density, fd.ROLL_R, axis = i)
-        #    rb = np.roll(density, fd.ROLL_L, axis = i)
- #
-        #    #Logarithm of density for quantum pressure
-        #    srp = np.roll(sr, fd.ROLL_R, axis = i)
-        #    srm = np.roll(sr, fd.ROLL_L, axis = i)
- #
-        #    ### COMPUTE CELL-FACE-VELOCITIES ###
-        #    vp = (pp - p)/dx 
-        #    vm = (p - pm)/dx 
- #
-        #    ### COMPUTE UPWIND-FLUX FOR DENSITY ###
-        #    fp = np.maximum(vp, 0) * r  + np.minimum(vp, 0) * rf
-        #    fm = np.maximum(vm, 0) * rb + np.minimum(vm, 0) * r
-        #    ddensity += (fp - fm) / dx
- #
-        #    ### COMPUTE QUANTUM PRESSURE ###
-        #    dphase -= 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
- #
-        #    ### COMPUTE SETHIAN-OSHER-FLUX ###
-        #    dphase += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
-#
-#
-        #dsr[c] = 1/(2*density[c]) * ddensity[c]
-        #dsi[c] = dphase[c]
-
-        ## REFERENCE
-        #dsr += (
-        #    + 0.5 * lapsi
-        #    + 1.0 * vi * vr
-        #)
-        #dsi += (
-        #    - 0.5 * lapsr
-        #    + 1.0 * vi * vi
-        #    - 0.5 * (vi ** 2 + vr ** 2)
-        #)
-        ## REFERENCE END
-
-        self.vrt = np.sqrt(vrt)
-        self.vit = np.sqrt(vit)
-
-        self.vmax = self.vit.max() 
-        self.vr_max = self.vrt.max()
+            #if (np.max(np.abs(peclet_sr)) > 2 or np.max(np.abs(peclet_si)) > 2):
+            #    print(f"Peclet S_r: max = {np.max(peclet_sr)} min = {np.min(peclet_sr)}, Peclet S_i: max = {np.max(peclet_si)} min = max = {np.min(peclet_si)}")
 
 
-        dfields = -np.array([dsr, dsi])
+            if not self.turnOffDiffusion:
+                dsr +=   0.5 * lapsi
+                dsi += - 0.5 * lapsr
 
-        return dfields * dt
+            if not self.turnOffConvection:
+                dsr += 1.0 * vi * vr
+                dsi += 1.0 * vi * vi
 
-class HOConvectiveScheme(ConvectiveScheme):
-    def __init__(self, config, generateIC):
-        super().__init__(config, generateIC)
+            if not self.turnOffSource:
+                dsi += - 0.5 * (vi ** 2 + vr ** 2)
 
-        self.interpolation_stencil = interpolation.stencil_ij(self.stencilOrder)
-
-        if self.stencilOrder % 2 == 0:
-            self.left_shift = int(self.stencilOrder/2 - 1)
-        else:
-            self.left_shift = int((self.stencilOrder-1)/2)
-
-        self.f1_stencil, self.f1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = 4, mode = fd.MODE_FORWARD)
-        self.b1_stencil, self.b1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = 4, mode = fd.MODE_BACKWARD)
-        self.c1_stencil, self.c1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = 4, mode = fd.MODE_CENTERED)
-        self.c2_stencil, self.c2_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 2, accuracy = 4, mode = fd.MODE_CENTERED)
-
-        print(self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff)
-
-
-
-    def getUpdatedFields(self, fields):
-        sr, si = fields
-        dx = self.dx
-        density = np.exp(2 * sr)
-
-        dsi    = np.zeros(self.psi.shape)
-        dsr    = np.zeros(self.psi.shape)
-        ddensity = np.zeros(self.psi.shape)
-        dphase   = np.zeros(self.psi.shape)
-        vr     = np.zeros(self.psi.shape)
-        vi     = np.zeros(self.psi.shape)
-        lapsr  = np.zeros(self.psi.shape)
-        lapsi  = np.zeros(self.psi.shape)
-        vrt    = np.zeros(self.psi.shape)
-        vit    = np.zeros(self.psi.shape)
-
-        dpot   = self.computePotential(density)
-
-        dsi   += dpot
-
-        for i in range(self.dimension):
-            vrc   = fd.getDerivative(sr, dx, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1)
-            vrf   = fd.getDerivative(sr, dx, self.f1_stencil, self.f1_coeff, axis = i, derivative_order=1)
-            vrb   = fd.getDerivative(sr, dx, self.b1_stencil, self.b1_coeff, axis = i, derivative_order=1)
-            vic   = fd.getDerivative(si, dx, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1)
-            vif   = fd.getDerivative(si, dx, self.f1_stencil, self.f1_coeff, axis = i, derivative_order=1)
-            vib   = fd.getDerivative(si, dx, self.b1_stencil, self.b1_coeff, axis = i, derivative_order=1)
-            lapsr = fd.getDerivative(sr, dx, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2)
-            lapsi = fd.getDerivative(si, dx, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2)
-
-            D_sr      =  0.5/dx
-            D_si      = -0.5/dx 
-            F_sr      =  vrc
-            F_si      =  vic 
-            peclet_sr =  F_sr /  D_sr
-            peclet_si =  F_si /  D_si
-            Ff_sr     =  vrf 
-            Fb_sr     =  vrb 
-            Ff_si     =  vif 
-            Fb_si     =  vib 
-
-            if (np.max(np.abs(peclet_sr)) > 2 or np.max(np.abs(peclet_si)) > 2):
-                print(f"Peclet S_r: max = {np.max(peclet_sr)} min = {np.min(peclet_sr)}, Peclet S_i: max = {np.max(peclet_si)} min = max = {np.min(peclet_si)}")
-
-            dsr += (
-                + 0.5 * lapsi
-                + 1.0 * vi * vr
-            )
-            dsi += (
-                - 0.5 * lapsr
-                + 1.0 * vi * vi
-                - 0.5 * (vi ** 2 + vr ** 2)
-            )
-
-
-            vrt += vr**2 
-            vit += vi**2
-
-
-        #c = np.logical_or((np.abs(dsi) > 10), np.abs(dsr) > 10)
-#
-        #dphase += dpot
-
-        #for i in range(self.dimension):
-        #    #Phase
-        #    p  = si
-        #    pp = np.roll(si, fd.ROLL_R, axis = i)
-        #    pm = np.roll(si, fd.ROLL_L, axis = i)
- #
-        #    #Density 
-        #    r  = density
-        #    rf = np.roll(density, fd.ROLL_R, axis = i)
-        #    rb = np.roll(density, fd.ROLL_L, axis = i)
- #
-        #    #Logarithm of density for quantum pressure
-        #    srp = np.roll(sr, fd.ROLL_R, axis = i)
-        #    srm = np.roll(sr, fd.ROLL_L, axis = i)
- #
-        #    ### COMPUTE CELL-FACE-VELOCITIES ###
-        #    vp = (pp - p)/dx 
-        #    vm = (p - pm)/dx 
- #
-        #    ### COMPUTE UPWIND-FLUX FOR DENSITY ###
-        #    fp = np.maximum(vp, 0) * r  + np.minimum(vp, 0) * rf
-        #    fm = np.maximum(vm, 0) * rb + np.minimum(vm, 0) * r
-        #    ddensity += (fp - fm) / dx
- #
-        #    ### COMPUTE QUANTUM PRESSURE ###
-        #    dphase -= 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
- #
-        #    ### COMPUTE SETHIAN-OSHER-FLUX ###
-        #    dphase += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
-#
-#
-        #dsr[c] = 1/(2*density[c]) * ddensity[c]
-        #dsi[c] = dphase[c]
-
-        ## REFERENCE
-        #dsr += (
-        #    + 0.5 * lapsi
-        #    + 1.0 * vi * vr
-        #)
-        #dsi += (
-        #    - 0.5 * lapsr
-        #    + 1.0 * vi * vi
-        #    - 0.5 * (vi ** 2 + vr ** 2)
-        #)
-        ## REFERENCE END
-
-        self.vrt = np.sqrt(vrt)
-        self.vit = np.sqrt(vit)
-
-        self.vmax = self.vit.max() 
-        self.vr_max = self.vrt.max()
+            self.vmax = np.maximum(self.vmax, np.max(np.abs(vi)))
 
 
         dfields = -np.array([dsr, dsi])

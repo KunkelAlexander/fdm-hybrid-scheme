@@ -1,13 +1,13 @@
 import numpy as np 
-import fd
-
 from numba import njit 
 import scipy.linalg
-import scipy.sparse.linalg
 import scipy.sparse
+import scipy.sparse.linalg
 
 
-''' SIMPLE FIRST AND SECOND ORDER FD '''
+import src.fd as fd
+
+''' SIMPLE FIRST AND SECOND ORDER FINITE DIFFERENCE FORMULAS '''
 
 
 @njit

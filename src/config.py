@@ -83,7 +83,8 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "SPeriodicBoundary"     : True, 
         "modifiedPQN"           : 3,
         "turnOffConvection"     : False,
-        "turnOffQuantumPressure": False,
+        "turnOffDiffusion"      : False,
+        "turnOffSource"         : False,
 
         #Fluid scheme options
         "fluidMode"             : INTEGRATE_V,

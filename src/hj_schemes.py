@@ -1,11 +1,9 @@
-import fv 
-import fd
-import fd_1d
-import fd_2d
-import schemes
-import config as configuration
-import interpolation
-import eno 
+import src.fv 
+import src.fd
+import src.fd_1d
+import src.fd_2d
+import src.schemes
+import src.eno 
 
 import numpy as np
 import matplotlib.pyplot as plt

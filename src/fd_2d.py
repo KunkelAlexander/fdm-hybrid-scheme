@@ -1,7 +1,8 @@
 import numpy as np 
 import scipy.linalg
 import scipy.sparse
-import fd 
+
+import src.fd as fd
 
 
 #f_i - f_i-1

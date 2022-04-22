@@ -1,9 +1,13 @@
-import fd
-import matplotlib.pyplot as plt
 import numpy as np
+
+import matplotlib.pyplot as plt
 from matplotlib import animation
 import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import AxesGrid
+import os
+
+import src.fd as fd
+
 
 """""" """""" """""" """""" """"""
 """""" """"" Timing """ """""" ""
@@ -201,10 +205,10 @@ def create1DFrame(
             % (np.mean(density_ref), np.mean(density), rms_error)
         )
 
-        plt.savefig("1d_plots/" + filename + ".jpg")
+        plt.savefig(f"plots/1d/{filename}.jpg")
 
         np.savez_compressed(
-            "1d_runs/" + filename + f"_{i}.npz",
+            f"runs/1d/{filename}/{i}.npz",
             config=np.array(list(config.items()), dtype=object),
             t=t,
             a=a,
@@ -417,10 +421,10 @@ def create2DFrame(
 
         title6.set_text(r"relative phase error")
 
-        plt.savefig("2d_plots/" + filename + ".jpg")
+        plt.savefig(f"plots/2d/{filename}.jpg")
 
         np.savez_compressed(
-            "2d_runs/" + filename + f"_{i}.npz",
+            f"runs/2d/{filename}/{i}.npz",
             config=np.array(list(config.items()), dtype=object),
             t=t,
             a=a,
@@ -638,11 +642,11 @@ def create3DFrame(
         title6.set_text(r"relative phase error")
 
         print("Save fig")
-        plt.savefig("3d_plots/" + filename + f"_axis={projectionAxis}.jpg")
+        plt.savefig(f"plots/3d/{filename}/axis={projectionAxis}.jpg")
 
         if saveFields:
             np.savez_compressed(
-                "3d_runs/" + filename + f"_{i}.npz",
+                f"runs/3d/{filename}/{i}.npz",
                 config=np.array(list(config.items()), dtype=object),
                 t=t,
                 a=a,
@@ -723,18 +727,17 @@ def createAnimation(
         filename = solver.getName().replace(" ", "_")
 
     config = solver.config
+    dim = config["dimension"]
+
+    #Create folders for run files and plots 
+    os.makedirs(f"plots/{dim}d/{filename}", exist_ok=True)
+    os.makedirs(f"runs/{dim}d/{filename}", exist_ok=True)
+
 
     fig, init, draw = createFrame(
         solver, label, config, analyticalSolution, filename, waveSolver, advection
     )
 
-    dim = ""
-    if config["dimension"] == 1:
-        dim = "1d_"
-    elif config["dimension"] == 2:
-        dim = "2d_"
-    elif config["dimension"] == 3:
-        dim = "3d_"
 
     def animate(i):
         # Update solutions
@@ -753,7 +756,7 @@ def createAnimation(
                  break
 
         obj = draw(i)
-        plt.savefig(dim + "animations/" + filename + f"_{i}.jpg", bbox_inches="tight", dpi=config["dpi"])
+        plt.savefig(f"plots/{dim}d/{filename}/{i}.jpg", bbox_inches="tight", dpi=config["dpi"])
         return obj
 
     frames   = getNumberOfFrames(config)
@@ -761,7 +764,6 @@ def createAnimation(
     fps      = config["fps"]
 
     print(f"Number of frames: {frames}, time per frame (ms) = {interval} and frames per second {fps}")
-
     print("Create animation with configuration: ", config)
 
     # blit=True re-d raws only the parts that have changed.
@@ -769,7 +771,7 @@ def createAnimation(
         fig, animate, frames=frames, interval=interval, blit=True, init_func=init
     )
     writergif = animation.PillowWriter(fps=fps)
-    anim.save(dim + "plots/gifs/" + filename + ".gif", writer=writergif)
+    anim.save(f"gifs/{dim}d/{filename}.gif", writer=writergif)
 
 
 def loadRun(filename):

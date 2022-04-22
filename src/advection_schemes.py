@@ -1,15 +1,10 @@
-import fv 
-import fd
-import fd_1d
-import fd_2d
-import schemes
-import config as configuration
-import interpolation
-import eno 
-
 import numpy as np
 import matplotlib.pyplot as plt
 
+import src.schemes as schemes
+import src.fd as fd
+import src.interpolation as interpolation 
+import src.eno as eno
 
 """ DEFINE SIMULATION """
 

@@ -13,3 +13,6 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 - numpy, scipy, matplotlib, findiff
 
 ## Credit
+
+https://github.com/sperseguers/gradiompy/ for wonderful integration routines
+

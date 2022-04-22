@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.signal import convolve
-import fd 
+import src.fd as fd
 
 
 def composite(y, dx=1, order=3):

@@ -11,17 +11,17 @@ from numba import njit
 #coefficients_1d = (
 #    np.random.rand(2, 10) - 0.5
 #)    # Order of magnitude of initial density perturbations
-coefficients_1d = np.load("1d_coefficients.npy")
+coefficients_1d = np.load("data/1d_coefficients.npy")
 
 #coefficients_2d = (
 #    np.random.rand(4, 10, 10) - 0.5
 #) 
-coefficients_2d = np.load("2d_coefficients.npy")
+coefficients_2d = np.load("data/2d_coefficients.npy")
 
 #coefficients_3d = (
 #    np.random.rand(8, 10, 10, 10) - 0.5
 #)  # Order of magnitude of initial density perturbations
-coefficients_3d = np.load("3d_coefficients.npy")
+coefficients_3d = np.load("data/3d_coefficients.npy")
 
 @njit
 def normalise(psi):

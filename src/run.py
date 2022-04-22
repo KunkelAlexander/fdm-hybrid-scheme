@@ -1,8 +1,8 @@
-import schemes
-import tests
-import config
-import analysis
-import animation
+import src.schemes
+import src.tests
+import src.config
+import src.analysis
+import src.animation
 
 import numpy as np
 

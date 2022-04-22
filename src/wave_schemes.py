@@ -1,17 +1,13 @@
-import cosmology
-import fv 
-import fd
-import fd_1d
-import fd_2d
+
 import numpy as np
 import scipy
-import tree
-import interpolation 
-import config as configuration
-import integration 
-import schemes
-
 import matplotlib.pyplot as plt 
+
+import src.fd as fd
+import src.fd_1d as fd_1d
+import src.fd_2d as fd_2d
+import src.schemes as schemes
+
 
 #Evolve wave function psi 
 class WaveScheme(schemes.SchroedingerScheme):

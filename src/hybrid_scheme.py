@@ -1,24 +1,22 @@
 from multiprocessing import Pool
 from itertools import repeat
-import cosmology
-import fv
-import fd
-import fd_1d
-import fd_2d
-import tree
-import interpolation
-import config as configuration
-import integration
-import schemes
-import wave_schemes
-import phase_schemes
-import matplotlib.pyplot as plt 
-
-
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt 
 
 import numpy as np
 from enum import Enum
+
+import src.cosmology
+import src.fv
+import src.fd
+import src.fd_1d
+import src.fd_2d
+import src.tree
+import src.interpolation
+import src.integration
+import src.schemes
+import src.wave_schemes
+import src.phase_schemes
 
 wave_threshold = 0.0
 splitting_threshold = 0.8
@@ -274,81 +272,6 @@ class WaveScheme(SubregionScheme):
 
         return new_density, new_phase, 0
 
-    #def getPhase(self, psi, phase):
-    #    boundaryThickness = self.ghostBoundarySize
-#
-    #    threshold = 100
-    #    # Difference above which 2 pi is added
-    #    max_diff = 5
-#
-    #    if self.dimension == 1:
-    #        sub_theta = fd.make_1d_boundary_continuous(
-    #            f=np.angle(psi), boundaryThickness=boundaryThickness
-    #        )
-#
-    #        for k in range(threshold):
-    #            # Diff from outside to inside, if positive add 2 pi to inside
-    #            diff = phase[0] - sub_theta[0]
-    #            if np.abs(diff) < max_diff:
-    #                break
-    #            sub_theta[:boundaryThickness] += np.sign(diff) * 2 * np.pi
-#
-    #        # plt.title("2")
-    #        # plt.plot(self.sub_xx, sub_theta)
-    #        # plt.show()
-#
-    #        for k in range(threshold):
-    #            # Diff from outside to inside, if positive add 2 pi to inside
-    #            diff = phase[-1] - sub_theta[-1]
-    #            if np.abs(diff) < max_diff:
-    #                break
-    #            sub_theta[-boundaryThickness:] += np.sign(diff) * 2 * np.pi
-#
-    #        # plt.title("3")
-    #        # plt.plot(self.sub_xx, sub_theta)
-    #        # plt.show()
-#
-    #    elif self.dimension == 2:
-    #        sub_theta = fd.make_2d_boundary_continuous(
-    #            f = np.angle(psi), boundaryThickness=boundaryThickness
-    #        )
-#
-    #        # Maximum number of 2 pis to be added
-#
-    #        # Stitch discontinuous regions together
-    #        for i in range(sub_theta.shape[0]):
-    #            # L2R
-    #            for k in range(threshold):
-    #                # Diff from outside to inside, if positive add 2 pi to inside
-    #                diff = phase[i, 0] - sub_theta[i, 0]
-    #                if np.abs(diff) < max_diff:
-    #                    break
-    #                sub_theta[i, :boundaryThickness] += np.sign(diff) * 2 * np.pi
-    #            # R2L
-    #            for k in range(threshold):
-    #                # Diff from outside to inside, if positive add 2 pi to inside
-    #                diff = phase[i, -1] - sub_theta[i, -1]
-    #                if np.abs(diff) < max_diff:
-    #                    break
-    #                sub_theta[i, -boundaryThickness:] += np.sign(diff) * 2 * np.pi
-    #                # Stitch discontinuous regions together
-    #        for i in range(sub_theta.shape[1]):
-    #            # T2B
-    #            for k in range(threshold):
-    #                # Diff from outside to inside, if positive add 2 pi to inside
-    #                diff = phase[0, i] - sub_theta[0, i]
-    #                if np.abs(diff) < max_diff:
-    #                    break
-    #                sub_theta[:boundaryThickness, i] += np.sign(diff) * 2 * np.pi
-    #            # BT2
-    #            for k in range(threshold):
-    #                # Diff from outside to inside, if positive add 2 pi to inside
-    #                diff = phase[-1, i] - sub_theta[-1, i]
-    #                if np.abs(diff) < max_diff:
-    #                    break
-    #                sub_theta[-boundaryThickness:, i] += np.sign(diff) * 2 * np.pi
-#
-    #    return sub_theta
 
     def getPhase(self, psi, phase):
         # Difference above which 2 pi is added
@@ -479,10 +402,7 @@ class HybridScheme(schemes.SchroedingerScheme):
         if not self.usePeriodicBC:
             raise ValueError("Hybrid scheme only supports periodic BC")
 
-
         self.vmax = 0
-        self.cfl = .5
-
         self.subGhostBoundarySize = self.stencilOrder * self.timeOrder
         self.treeUpdateFrequency = 10 
         self.treeUpdateCounter = 0
@@ -591,10 +511,9 @@ class HybridScheme(schemes.SchroedingerScheme):
         t1 = 1/6  * self.eta*self.dx*self.dx
         t2 =  .5 * 0.5 * self.dx/(self.vmax + 1e-8)
         t3 =  .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
-        print("old vmax = ", self.vmaxp, " new vmax: ", self.vmax, " amax: ", self.amax, "Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
+        #print("old vmax = ", self.vmaxp, " new vmax: ", self.vmax, " amax: ", self.amax, "Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
         return np.min([t1, t2, t3])
-        #return np.minimum(.1 * self.eta*self.dx*self.dx, 0.1*self.dx/(self.dimension*(self.vmax + 1e-8)))
-
+        
     def getDensity(self):
         return self.density
 

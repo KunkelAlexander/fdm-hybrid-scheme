@@ -1,8 +1,8 @@
 import yt 
 import numpy as np 
-import animation 
-
 import yt_idv
+
+import src.animation 
 
 
 obj = animation.loadRun("3d_runs/hybrid_scheme_15.npz")
