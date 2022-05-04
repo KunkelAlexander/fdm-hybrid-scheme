@@ -205,17 +205,19 @@ def create1DFrame(
             % (np.mean(density_ref), np.mean(density), rms_error)
         )
 
-        plt.savefig(f"plots/1d/{filename}.jpg")
+        if os.path.exists(f"plots/1d/{filename}/"):
+            plt.savefig(f"plots/1d/{filename}.jpg")
 
-        np.savez_compressed(
-            f"runs/1d/{filename}/{i}.npz",
-            config=np.array(list(config.items()), dtype=object),
-            t=t,
-            a=a,
-            density=density,
-            phase=phase,
-            psi=psi_ref,
-        )
+        if os.path.exists(f"runs/1d/{filename}/"):
+            np.savez_compressed(
+                f"runs/1d/{filename}/{i}.npz",
+                config=np.array(list(config.items()), dtype=object),
+                t=t,
+                a=a,
+                density=density,
+                phase=phase,
+                psi=psi_ref,
+            )
 
         # , highlight1, highlight2
         return im1, im2, im3, im4, im5, im6, *subregion_patches, time_text, norm_text
@@ -700,7 +702,7 @@ def drawFrame(
     if label == None:
         label = solver.getName()
     if filename == None:
-        filename = solver.getName().replace(" ", "_") + f"_t={solver.t}"
+        filename = solver.getName().replace(" ", "_")
 
     config = solver.config
 

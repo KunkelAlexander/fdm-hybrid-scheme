@@ -593,3 +593,15 @@ class ConvectiveScheme(ConvectiveScheme):
         dfields = -np.array([dsr, dsi])
 
         return dfields * dt
+
+
+    def getAdaptiveTimeStep(self):
+        # Combination of 
+        # CFL-condition for advection: dt < CFL * dx / (sum |v_i|)
+        # CFL-condition for diffusion: dt < CFL * hbar/m * dx^2
+        # CFL-condition based on acceleration for n-body methods
+        t1 = 0.125  * self.eta*self.dx*self.dx
+        t2 = 0#.5 * 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
+        t3 = 0#.5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
+        #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
+        return np.min([t1, t2, t3])

@@ -50,6 +50,70 @@ class AdvectionScheme(schemes.Scheme):
         fields[1] = phase
 
 
+
+
+class CenteredDifferenceScheme(AdvectionScheme):
+
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+
+    def getUpdatedFields(self, dt, fields):
+        self.setPhase(fields)
+        uc, pc = fields
+        dx = self.dx 
+
+        du   = np.zeros(uc.shape)
+        dpc  = np.zeros(pc.shape)
+
+        for i in range(self.dimension):
+            pr    = np.roll(pc, fd.ROLL_R, axis=i)
+            pl    = np.roll(pc, fd.ROLL_L, axis=i)
+            ur    = np.roll(uc, fd.ROLL_R, axis=i)
+            ul    = np.roll(uc, fd.ROLL_L, axis=i)
+            vc    = (pr - pl) / (2*dx)
+            sigma = vc * dt/dx
+
+        
+            du += sigma * (ur - ul)/2
+
+        return -np.array([du, dpc])
+
+    def getName(self):
+        return "centered difference scheme"
+
+
+
+class UpwindScheme(AdvectionScheme):
+
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+
+    def getUpdatedFields(self, dt, fields):
+        self.setPhase(fields)
+        uc, pc = fields
+        dx = self.dx 
+
+        du   = np.zeros(uc.shape)
+        dpc  = np.zeros(pc.shape)
+
+        for i in range(self.dimension):
+            pr    = np.roll(pc, fd.ROLL_R, axis=i)
+            pl    = np.roll(pc, fd.ROLL_L, axis=i)
+            ur    = np.roll(uc, fd.ROLL_R, axis=i)
+            ul    = np.roll(uc, fd.ROLL_L, axis=i)
+            vc    = (pr - pl) / (2*dx)
+            sigma = vc * dt/dx
+        
+            du += sigma * (vc > 0) * (uc - ul) + sigma * (vc <= 0) * (ur - uc)
+
+        return -np.array([du, dpc])
+
+    def getName(self):
+        return "upwind scheme"
+
+
 class DonorCellScheme(AdvectionScheme):
 
     def __init__(self, config, generateIC):

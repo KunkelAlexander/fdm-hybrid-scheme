@@ -6,17 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from enum import Enum
 
-import src.cosmology
-import src.fv
-import src.fd
-import src.fd_1d
-import src.fd_2d
-import src.tree
-import src.interpolation
-import src.integration
-import src.schemes
-import src.wave_schemes
-import src.phase_schemes
+import src.fd as fd
+import src.schemes as schemes 
+import src.wave_schemes as wave_schemes 
+import src.phase_schemes as phase_schemes 
 
 wave_threshold = 0.0
 splitting_threshold = 0.8
