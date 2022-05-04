@@ -20,12 +20,9 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
  - Convective schemes do not work properly
  
 ## Credit
-<<<<<<< HEAD
 
 https://github.com/sperseguers/gradiompy/ for wonderful integration routines
 
-=======
 Goes to the wonderful jupyter notebooks and explanations by Philip Mocz
 https://github.com/pmocz/finitevolume-python
 https://github.com/pmocz/quantumspectral-python
->>>>>>> e3ddc9169e8b6663930582efed3687e93d7904c7
