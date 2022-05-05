@@ -137,7 +137,7 @@ def create1DFrame(
         subregion_patches = []
 
         # , highlight1, highlight2
-        return im1, im2, im3, im4, im5, im6, *subregion_patches, time_text, norm_text
+        return im1, im2, im3, im4, im5, im6, subregion_patches, time_text, norm_text
 
     def draw(i):
         # Get fluid solution
@@ -229,7 +229,7 @@ def create1DFrame(
             )
 
         # , highlight1, highlight2
-        return im1, im2, im3, im4, im5, im6, *subregion_patches, time_text, norm_text
+        return im1, im2, im3, im4, im5, im6, subregion_patches, time_text, norm_text
 
     return fig, init, draw
 
