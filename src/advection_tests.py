@@ -5,11 +5,11 @@ import math
 """   Initial conditions     """
 """""" """""" """""" """""" """""" ""
 
-def gaussian1D(xx, dx, t=0, x0 = 1.2, v = 1, alpha = 1/5):
+def gaussian1D(xx, dx, t=0, x0 = 1, v = 1, alpha = 1/10):
     psi = np.exp(-(xx-x0-t*v)**2/alpha)
     return psi, xx * v
 
-def tophat1D(xx, dx, t=0, x0 = .6, v = 1, L = 4, w = 1, h = 1):
+def tophat1D(xx, dx, t=0, x0 = 1, v = 1, L = 4, w = 1, h = 1):
     x0c = (x0 + v * t)%L
     x0l, x0r = x0c - w/2, x0c + w/2
     psi = h * (xx > x0l) * (xx < x0r)

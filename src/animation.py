@@ -33,6 +33,15 @@ def getTimePerFrame(config):
 """""" """""  1D    """ """""" ""
 """""" """""" """""" """""" """"""
 
+# 
+
+plt.rcParams["font.size"] = 8
+plt.rcParams['font.family'] = 'serif'
+#plt.rcParams['font.serif'] = 'Ubuntu'
+#plt.rcParams['font.monospace'] = 'Ubuntu Mono'
+#plt.rcParams['axes.labelweight'] = 'bold'
+plt.rcParams['figure.titlesize'] = 12
+plt.rcParams["font.family"] = "FreeSerif"
 
 def create1DFrame(
     solver,
@@ -224,6 +233,121 @@ def create1DFrame(
 
     return fig, init, draw
 
+
+def createPretty1DFrame(
+    solver,
+    label,
+    config,
+    analyticalSolution,
+    filename,
+    waveSolver=None, 
+    advection = False, 
+):
+    xlim            = config["xlim"]
+    ylim            = config["densityYlim"]
+    ylim2           = config["phaseYlim"]
+    mod2Phase       = config["plotPhaseMod2"]
+    useAdaptiveYlim = config["useAdaptiveYlim"]
+
+    # prep figure
+    fig, ax1 = plt.subplots(figsize=config["size"], dpi=config["dpi"])
+
+    # Switch to axis 1
+    plt.sca(ax1)
+    # Clear axis
+    plt.cla()
+    # Plot background
+    (im1,) = plt.plot([], [], "ro", ms=3, label=label)
+    if waveSolver is None:
+        label2 = "analytical solution"
+    else:
+        label2 = "wave scheme"
+    (im3,) = plt.plot([], [], "b", ms=1, label=label2)
+
+
+    # Set axis ratios
+    ax1.set_xlim(xlim)
+    if not useAdaptiveYlim:
+        ax1.set_ylim(ylim)
+
+    ax1.set_ylabel("$u(x)$")
+    ax1.set_xlabel("position $x$")
+
+    # highlight1 = plt.axvspan(0, 0, color='black', alpha=0.3)
+    leg = plt.legend(loc = "upper right")
+    leg.get_frame().set_linewidth(0.0)
+
+
+    time_text = ax1.text(0.02, 0.95, "", transform=ax1.transAxes)
+
+    # initialization function: plot the background of each frame
+
+    def init():
+        #ax1.set_title(r"$|\psi|^2$")
+
+        im1.set_data([], [])
+        im3.set_data([], [])
+
+        time_text.set_text("")
+
+        subregion_patches = []
+
+        # , highlight1, highlight2
+        return im1, im3, time_text
+
+    def draw(i):
+        # Get fluid solution
+        density = solver.getDensity()
+        phase   = solver.getPhase()
+        t = solver.getTime()
+        a = solver.getScaleFactor()
+        xx = solver.getGrid()[0]
+        dx = solver.dx
+
+        im1.set_data(xx, density)
+
+        # Get phase or analytical solution
+        if waveSolver is None:
+            if advection:
+                psi_ref, phase_ref = analyticalSolution(xx, dx, t)
+                density_ref = psi_ref 
+            else:
+                psi_ref = analyticalSolution(xx, dx, t)
+                density_ref = np.abs(psi_ref) ** 2
+        else:
+            psi_ref = waveSolver.getPsi()
+            density_ref = np.abs(psi_ref) ** 2
+
+
+        if not advection:
+            if mod2Phase:
+                phase_ref = np.angle(psi_ref)
+            else:
+                phase_ref = fd.make_1d_continuous(np.angle(psi_ref))
+
+        im3.set_data(xx, density_ref)
+        
+
+        time_text.set_text("Time t = %.5f" % (t))
+
+        #if os.path.exists(f"plots/1d/{filename}/"):
+        if solver.config["savePlots"]:
+            plt.savefig(f"plots/1d/{filename}.pdf", bbox_inches='tight')
+
+        #if os.path.exists(f"runs/1d/{filename}/"):
+        #    np.savez_compressed(
+        #        f"runs/1d/{filename}/{i}.npz",
+        #        config=np.array(list(config.items()), dtype=object),
+        #        t=t,
+        #        a=a,
+        #        density=density,
+        #        phase=phase,
+        #        psi=psi_ref,
+        #    )
+
+        return im1, im3, time_text
+
+    return fig, init, draw
 
 """""" """""" """""" """""" """"""
 """""" """""  2D    """ """""" ""
@@ -712,6 +836,29 @@ def drawFrame(
     init()
     draw(0)
 
+def drawPrettyFrame(
+    solver,
+    analyticalSolution=None,
+    label = None,
+    filename = None,
+    waveSolver=None,
+    advection=False, 
+):
+    if analyticalSolution == None:
+        analyticalSolution = solver.generateIC
+    if label == None:
+        label = solver.getName()
+    if filename == None:
+        filename = solver.getName().replace(" ", "_")
+
+    config = solver.config
+    dim = config["dimension"]
+
+    fig, init, draw = createPretty1DFrame(
+        solver = solver, config = config, analyticalSolution = analyticalSolution, filename = filename, label = label, waveSolver = waveSolver, advection = advection
+    )
+    init()
+    draw(0)
 
 def createAnimation(
     solver,

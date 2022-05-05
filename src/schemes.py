@@ -200,8 +200,8 @@ class Scheme:
             self.fields = 1 / 2 * un + 1 / 2 * u1 + self.getUpdatedFields(1/2 * dt, u1)
 
         elif self.timeOrder == 3:
-            u1 = un + 1 / 1 * dt * self.getUpdatedFields(dt, un)
-            u2 = 3 / 4 * un + 1 / 4 * u1 + self.getUpdatedFields( 1/4 * dt, u1)
+            u1 = un + self.getUpdatedFields(dt, un)
+            u2 = 3 / 4 * un + 1 / 4 * u1 +  self.getUpdatedFields(1/4 * dt, u1)
             self.fields = 1 / 3 * un + 2 / 3 * u2 + self.getUpdatedFields(2/3 * dt, u2)
 
         elif self.timeOrder == 4:

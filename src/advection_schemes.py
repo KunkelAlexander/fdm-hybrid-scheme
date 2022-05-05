@@ -35,6 +35,7 @@ class AdvectionScheme(schemes.Scheme):
         for i in range(self.dimension):
             v = (np.roll(phase, fd.ROLL_R, axis = i) - np.roll(phase, fd.ROLL_L, axis = i))/(2*self.dx)
             self.vmax = np.maximum(self.vmax, np.max(np.abs(v[self.inner])))
+        self.vmax = 1 
             
         return self.cfl*self.dx/(0.1 + self.vmax)
 
@@ -72,12 +73,10 @@ class CenteredDifferenceScheme(AdvectionScheme):
             ur    = np.roll(uc, fd.ROLL_R, axis=i)
             ul    = np.roll(uc, fd.ROLL_L, axis=i)
             vc    = (pr - pl) / (2*dx)
-            sigma = vc * dt/dx
-
         
-            du += sigma * (ur - ul)/2
+            du += vc* (ur - ul)/(2*dx)
 
-        return -np.array([du, dpc])
+        return -dt * np.array([du, dpc])
 
     def getName(self):
         return "centered difference scheme"
@@ -104,14 +103,42 @@ class UpwindScheme(AdvectionScheme):
             ur    = np.roll(uc, fd.ROLL_R, axis=i)
             ul    = np.roll(uc, fd.ROLL_L, axis=i)
             vc    = (pr - pl) / (2*dx)
-            sigma = vc * dt/dx
         
-            du += sigma * (vc > 0) * (uc - ul) + sigma * (vc <= 0) * (ur - uc)
+            du +=  np.maximum(vc, 0) * (uc - ul)/dx + np.minimum(vc, 0)  * (ur - uc)/dx
 
-        return -np.array([du, dpc])
+        return -dt * np.array([du, dpc])
 
     def getName(self):
         return "upwind scheme"
+
+
+class SecondOrderUpwindScheme(AdvectionScheme):
+
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+    def getUpdatedFields(self, dt, fields):
+        self.setPhase(fields)
+        uc, pc = fields
+        dx = self.dx 
+
+        du   = np.zeros(uc.shape)
+        dpc  = np.zeros(pc.shape)
+
+        for i in range(self.dimension):
+            pr    = np.roll(pc, fd.ROLL_R, axis=i)
+            pl    = np.roll(pc, fd.ROLL_L, axis=i)
+            vc    = (pr - pl) / (2*dx)
+
+            uf = fd.getF2Gradient(uc, dx, axis=i)
+            ub = fd.getB2Gradient(uc, dx, axis=i)
+        
+            du += np.maximum(vc, 0) * ub + np.minimum(vc, 0) * uf
+
+        return -dt * np.array([du, dpc])
+
+    def getName(self):
+        return "second-order upwind scheme"
 
 
 class DonorCellScheme(AdvectionScheme):
@@ -151,6 +178,9 @@ class DonorCellScheme(AdvectionScheme):
 
         return dt * -np.array([dphi, pc])
 
+    def getName(self):
+        return "conor-cell scheme"
+
 class LaxWendroffScheme(AdvectionScheme):
 
     def __init__(self, config, generateIC):
@@ -186,11 +216,12 @@ class LaxWendroffScheme(AdvectionScheme):
 
         return -dt * np.array([dphi, dphase])
 
+    def getName(self):
+        return "lax-wendroff scheme"
+
 class SOLimiterScheme(AdvectionScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-
-        self.limiter = schemes.FluxLimiters.SUPERBEE
         self.cfl = 0.4999
 
     def getUpdatedFields(self, dt, fields):
@@ -274,6 +305,9 @@ class SOLimiterScheme(AdvectionScheme):
 
         return dfields
 
+    def getName(self):
+        return "second-order upwind scheme with limiter"
+
 class MUSCLScheme(AdvectionScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
@@ -313,6 +347,8 @@ class MUSCLScheme(AdvectionScheme):
 
         return dfields
 
+    def getName(self):
+        return "muscl scheme"
 
 class LaxFriedrichsScheme(AdvectionScheme):
 
@@ -389,6 +425,8 @@ class LaxFriedrichsScheme(AdvectionScheme):
 
         return dt * -np.array([ddensity, dphase])
 
+    def getName(self):
+        return "lax-friedrichs scheme"
 
 class ENOScheme(AdvectionScheme):
 
@@ -476,3 +514,6 @@ class ENOScheme(AdvectionScheme):
 
         return -dt * np.array([ddensity, dphase])
 
+
+    def getName(self):
+        return "eno scheme"
