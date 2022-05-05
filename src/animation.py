@@ -41,7 +41,7 @@ plt.rcParams['font.family'] = 'serif'
 #plt.rcParams['font.monospace'] = 'Ubuntu Mono'
 #plt.rcParams['axes.labelweight'] = 'bold'
 plt.rcParams['figure.titlesize'] = 12
-plt.rcParams["font.family"] = "FreeSerif"
+plt.rcParams["font.family"] = "DejaVuSans"
 
 def create1DFrame(
     solver,
