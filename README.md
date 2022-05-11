@@ -13,7 +13,7 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 - numpy, scipy, matplotlib, findiff
 
 ## Usage
- - Find examples in Jupyter notebooks :)
+ - The Jupyter notebook accompanying chapter 4 is called "chapter4.ipynb". 
 
 ## Known issues
  - Dimensionful units not implemented
