@@ -42,7 +42,7 @@ def computeEnergy(density, phase, potential, dx):
         J += 0.5 * density * fd.getCenteredGradient(phase, dx, axis=i)**2 
     W = 0.5 * density * potential
 
-    E = np.sum(I + J + W)
+    E = np.mean(I + J + W)
     return E
 
 def computeTruncationError(solver, density, density_ref):
@@ -361,15 +361,15 @@ def create2DFrame(
     im1 = ax1.imshow(np.random.random((N, N)), cmap="inferno", vmin = ll, vmax = hl)
     title1 = ax1.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
     im2 = ax2.imshow(np.random.random((N, N)), cmap="inferno", vmin = ll, vmax = hl)
-    title2 = ax2.set_title(r"${\rm angle}(\psi)$ at t = $0$")
-    im3 = ax3.imshow(np.random.random((N, N)), cmap="gray", vmin = 0, vmax = 1)
-    title3 = ax3.set_title(r"${\rm angle}(\psi)$ at t = $0$")
+    title2 = ax2.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
+    im3 = ax3.imshow(np.random.random((N, N)), cmap="gray",    vmin = 0, vmax = 1)
+    title3 = ax3.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
 
     im4 = ax4.imshow(np.random.random((N, N)), cmap="inferno", vmin=pl, vmax=ph)
     title4 = ax4.set_title(r"${\rm angle}(\psi)$ at t = $0$")
     im5 = ax5.imshow(np.random.random((N, N)), cmap="inferno", vmin=pl, vmax=ph)
     title5 = ax5.set_title(r"${\rm angle}(\psi)$ at t = $0$")
-    im6 = ax6.imshow(np.random.random((N, N)), cmap="gray", vmin=0, vmax=1)
+    im6 = ax6.imshow(np.random.random((N, N)), cmap="gray",    vmin=0, vmax=1)
     title6 = ax6.set_title(r"${\rm angle}(\psi)$ at t = $0$")
 
     suptitle = ax6.text(.05, .8, "", fontsize=10, c="w", bbox=dict(facecolor='gray', alpha=0.5), transform=ax.transAxes)
@@ -497,11 +497,11 @@ def create2DFrame(
         title1.set_text(r"$\log_{10}(|\psi|^2)$ for " + label)
 
         if waveSolver is None:
-            title2.set_text(r"analytical solution")
-            title5.set_text(r"analytical solution")
+            title2.set_text(r"$\log_{10}(|\psi|^2)$ for analytical solution")
+            title5.set_text(r"$angle(\psi)$ for analytical solution")
         else:
-            title2.set_text(r"wave scheme")
-            title5.set_text(r"wave scheme")
+            title2.set_text(r"$\log_{10}(|\psi|^2)$ wave scheme")
+            title5.set_text(r"$angle(\psi)$ wave scheme")
 
         title3.set_text(r"relative density error")
         
@@ -511,15 +511,16 @@ def create2DFrame(
 
         plt.savefig(f"plots/2d/{filename}.jpg")
 
-        np.savez_compressed(
-            f"runs/2d/{filename}/{i}.npz",
-            config=np.array(list(config.items()), dtype=object),
-            t=t,
-            a=a,
-            density=density,
-            phase=phase,
-            psi=psi_ref,
-        )
+        if os.path.exists(f"runs/2d/{filename}"):
+            np.savez_compressed(
+                f"runs/2d/{filename}/{i}.npz",
+                config=np.array(list(config.items()), dtype=object),
+                t=t,
+                a=a,
+                density=density,
+                phase=phase,
+                psi=psi_ref,
+            )
 
         return (im1, im2, im4, im5, im5, im6)
 

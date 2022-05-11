@@ -17,19 +17,10 @@ class PhaseScheme(schemes.SchroedingerScheme):
         self.fields[0] = np.abs(self.psi) ** 2
         self.fields[1] = fd.make_continuous(np.angle(self.psi))
         
-        self.turnOffConvection      = config["turnOffConvection"]
-        self.turnOffDiffusion = config["turnOffDiffusion"]
-        self.friction = config["friction"]
+        self.turnOffConvection = config["turnOffConvection"]
+        self.turnOffDiffusion  = config["turnOffDiffusion"]
+        self.friction          = config["friction"]
 
-        self.vmax = 0 
-        self.amax = 0
-
-    def getAdaptiveTimeStep(self):
-        # Combination of 
-        # CFL-condition for advection: dt < CFL * dx / (sum |v_i|)
-        # CFL-condition for diffusion: dt < CFL * hbar/m * dx^2
-        return self.cfl*self.eta*self.dx*self.dx/(1.0+self.eta*self.dx*self.vmax*self.dimension)
-        
     def getDensity(self):
         return self.fields[0]
 
@@ -41,6 +32,19 @@ class PhaseScheme(schemes.SchroedingerScheme):
 
     def setPhase(self, phase):
         self.fields[1] = phase
+
+    def kick1(self, fields, dt):
+        #kick by dt/2
+        fields[1] -= dt/2 * self.potential
+        return fields
+
+    def kick2(self, fields, dt):
+        #update potential
+        self.potential = self.computePotential(fields[0])
+
+        #kick by dt/2
+        fields[1] -= dt/2 * self.potential
+        return fields
 
     #Only required if we do not use periodic boundary conditions
     def setBoundaryConditions(self, fields):
@@ -57,6 +61,18 @@ class PhaseScheme(schemes.SchroedingerScheme):
         #t1 = 0.125  * self.eta*self.dx*self.dx
         #t2 = .5 * 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
         #t3 = .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
+
+        self.vmax = 0
+        self.amax = 0
+
+        for i in range(self.dimension):
+            pc  = self.fields[1]
+            pp  = np.roll(pc, fd.ROLL_R, axis = i)
+            pm  = np.roll(pc, fd.ROLL_L, axis = i)
+
+            self.vmax = np.maximum(np.max(np.abs((pp - pm)/(2*self.dx))), self.vmax)
+            self.amax = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
+
         t1 = 1/6  * self.eta*self.dx*self.dx
         t2 = 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
         t3 = 0.4 * (self.dx/(self.amax + 1e-8))**0.5
@@ -77,11 +93,15 @@ class UpwindScheme(PhaseScheme):
         dx = self.dx
 
         ddensity = np.zeros(density.shape)
-        dphase   = self.computePotential(density)
+        dphase   = np.zeros(phase.shape)
         self.vmax = 0
         self.amax = 0
 
         sr = 0.5 * np.log(density)
+
+        ## Classical friction term 
+        if self.friction > 0:
+            dphase += self.friction * (phase - np.mean(phase))
 
         for i in range(self.dimension):
             ### ROLL FIELDS ###
@@ -149,10 +169,8 @@ class UpwindScheme(PhaseScheme):
                 if (np.max(np.abs(peclet_sr)) > 2 or np.max(np.abs(peclet_si)) > 2):
                     print(f"Peclet S_r: max = {np.max(peclet_sr)} min = {np.min(peclet_sr)}, Peclet S_i: max = {np.max(peclet_si)} min = max = {np.min(peclet_si)}")
 
-            ### COMPUTE QUANTUM PRESSURE ###
-            if self.friction > 0:
-                dphase += self.friction * (phase - np.mean(phase))
 
+            ### COMPUTE QUANTUM PRESSURE ###
             if self.turnOffDiffusion == False:
                 dphase -= self.eta**2 * 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
 
@@ -171,11 +189,14 @@ class UpwindScheme(PhaseScheme):
         return "upwind scheme"
 
 #Get high-order upwind drift by dt
-def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False):
+def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0):
     ddensity = np.zeros(density.shape)
     dphase   = np.zeros(phase.shape)
     limiter  = schemes.FluxLimiters.SMART
     vmax = 0
+
+    if friction > 0:
+        dphase   += friction * (phase - np.mean(phase))
 
     for i in range(density.ndim):
         ### PHASE ###
@@ -228,6 +249,8 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
 
 
         ddensity += (fp - fm) / dx
+
+
         if not turnOffConvection:
             dphase   += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
 
@@ -236,58 +259,71 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
 
     return - dt * ddensity, - dt * dphase, vmax
 
+#class HOUpwindScheme(PhaseScheme):
+#    def __init__(self, config, generateIC):
+#        super().__init__(config, generateIC)
+#
+#    def step(self, dt):
+#        if not self.usePeriodicBC:
+#            self.setBoundaryConditions(self.fields)
+#
+#        #kick by dt/2
+#        self.fields[1] -= dt/2 * self.potential
+#
+#        u0 = self.fields 
+#        ddensity1, dphase1, v2 = getHODrift(u0[0], u0[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
+#        u1 = u0 + np.array([ddensity1, dphase1])
+#        ddensity2, dphase2, v1 = getHODrift(u1[0], u1[1], 0.5 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
+#        self.fields = 0.5 * u0 + 0.5 * u1 + np.array([ddensity2, dphase2])
+#
+#        #update potential
+#        self.potential = self.computePotential(self.fields[0])
+#
+#        #kick by dt/2
+#        self.fields[1] -= dt/2 * self.potential
+#
+#        self.vmax = np.maximum(v1, v2)
+#
+#        self.t += dt * self.getScaleFactor()**2
+#
+#    def getName(self):
+#        return "muscl-upwind scheme"
+#
+#    def getAdaptiveTimeStep(self):
+#
+#        self.vmax = 0
+#        self.amax = 0
+#
+#        for i in range(self.dimension):
+#            pc  = self.fields[1]
+#            pp  = np.roll(pc, fd.ROLL_R, axis = i)
+#            pm  = np.roll(pc, fd.ROLL_L, axis = i)
+#
+#            self.vmax = np.maximum(np.max(np.abs((pp - pm)/(2*self.dx))), self.vmax)
+#            self.amax = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
+#        
+#        # Combination of 
+#        # CFL-condition for advection: dt < CFL * dx / (sum |v_i|)
+#        # CFL-condition for diffusion: dt < CFL * hbar/m * dx^2
+#        # CFL-condition based on acceleration for n-body methods
+#        t1 = 1/6 * self.eta*self.dx*self.dx
+#        t2 = 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
+#        t3 = 0.4 * (self.dx/(self.amax + 1e-8))**0.5
+#        #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
+#        return np.min([t1, t2, t3])
+
+
 class HOUpwindScheme(PhaseScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
 
-    def step(self, dt):
-        if not self.usePeriodicBC:
-            self.setBoundaryConditions(self.fields)
-
-        #kick by dt/2
-        self.fields[1] -= dt/2 * self.potential
-
-        u0 = self.fields 
-        ddensity1, dphase1, v2 = getHODrift(u0[0], u0[1], 0.5 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
-        u1 = u0 + np.array([ddensity1, dphase1])
-        ddensity2, dphase2, v1 = getHODrift(u1[0], u1[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
-        self.fields = u0 + np.array([ddensity2, dphase2])
-
-        #update potential
-        self.potential = self.computePotential(self.fields[0])
-
-        #kick by dt/2
-        self.fields[1] -= dt/2 * self.potential
-
-        self.vmax = np.maximum(v1, v2)
-
-        self.t += dt * self.getScaleFactor()**2
+    def getUpdatedFields(self, dt, fields):
+        ddensity, dphase, vmax = getHODrift(fields[0], fields[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion, friction=self.friction)
+        return np.array([ddensity, dphase])
 
     def getName(self):
         return "muscl-upwind scheme"
 
-    def getAdaptiveTimeStep(self):
-
-        self.vmax = 0
-        self.amax = 0
-
-        for i in range(self.dimension):
-            pc  = self.fields[1]
-            pp  = np.roll(pc, fd.ROLL_R, axis = i)
-            pm  = np.roll(pc, fd.ROLL_L, axis = i)
-
-            self.vmax = np.maximum(np.max(np.abs((pp - pm)/(2*self.dx))), self.vmax)
-            self.amax = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
-        
-        # Combination of 
-        # CFL-condition for advection: dt < CFL * dx / (sum |v_i|)
-        # CFL-condition for diffusion: dt < CFL * hbar/m * dx^2
-        # CFL-condition based on acceleration for n-body methods
-        t1 = 1/6 * self.eta*self.dx*self.dx
-        t2 = 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
-        t3 = 0.4 * (self.dx/(self.amax + 1e-8))**0.5
-        #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
-        return np.min([t1, t2, t3])
 
 class LaxWendroffUpwindScheme(PhaseScheme):
 
@@ -312,7 +348,7 @@ class LaxWendroffUpwindScheme(PhaseScheme):
         dx = self.dx
 
         ddensity = np.zeros(density.shape)
-        dphase   = self.computePotential(density) + fd.getQuantumPressure(density, dx)
+        dphase   = fd.getQuantumPressure(density, dx)
 
 
         ddensity2 = np.zeros(density.shape)
@@ -423,6 +459,15 @@ class ConvectiveScheme(PhaseScheme):
     def setBoundaryConditions(self, fields):
         super().setBoundaryConditions(fields)
         fields[0][self.boundary] = 0.5 * np.log(fields[0][self.boundary])
+    
+
+    def kick2(self, fields, dt):
+        #update potential
+        self.potential = self.computePotential(np.exp(2 * fields[0]))
+
+        #kick by dt/2
+        fields[1] -= dt/2 * self.potential
+        return field
 
 class FTCSConvectiveScheme(ConvectiveScheme):
     def __init__(self, config, generateIC):
@@ -434,7 +479,7 @@ class FTCSConvectiveScheme(ConvectiveScheme):
         dx = self.dx
 
         dsr     = np.zeros(self.psi.shape)
-        dsi     = self.computePotential(np.exp(2 * sr))
+        dsi     = np.zeros(self.psi.shape)
 
         for i in range(self.dimension):
             vrc          = fd.getDerivative(sr, dx, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1)
@@ -477,7 +522,7 @@ class DonorCellConvectionScheme(ConvectiveScheme):
         vrt    = np.zeros(self.psi.shape)
         vit    = np.zeros(self.psi.shape)
 
-        dsi   = self.computePotential(density)
+        dsi   = np.zeros(density.shape)
 
 
         for i in range(self.dimension):
@@ -553,9 +598,6 @@ class ConvectiveScheme(ConvectiveScheme):
         vrt      = np.zeros(self.psi.shape)
         vit      = np.zeros(self.psi.shape)
 
-        dpot   = self.computePotential(density)
-
-        dsi   += dpot
 
         for i in range(self.dimension):
             vrc   = fd.getDerivative(sr, dx, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1)

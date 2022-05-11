@@ -14,11 +14,17 @@ class WaveScheme(schemes.SchroedingerScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
         self.cfl = .2
+        self.friction = config["friction"]
+        if self.friction > 0:
+            print("Using wave scheme with non-zero friction. This results in imaginary time steps.")
 
     def step(self, dt):
 
         if not self.usePeriodicBC:
             self.setBoundaryConditions(self.psi)
+
+        if self.friction > 0:
+            dt *= 1j
 
         # (1/2) kick
         self.psi = np.exp(-1.0j * dt / 2.0 * self.potential) * self.psi
@@ -45,7 +51,7 @@ class WaveScheme(schemes.SchroedingerScheme):
         return fd.make_continuous(np.angle(self.psi))
         
     def getAdaptiveTimeStep(self):
-        return self.cfl*self.eta*self.dx*self.dx
+        return 1/6*self.eta*self.dx*self.dx
 
     def setBoundaryConditions(self, psi):
         f = self.generateIC(*self.grid, self.dx, self.t)

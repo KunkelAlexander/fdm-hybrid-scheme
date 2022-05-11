@@ -47,7 +47,7 @@ fluxLimiterDictionary = {
 class Scheme:
     def __init__(self, config, generateIC):
 
-        print("Constructing scheme")
+        print(f"Constructing {self.getName()} scheme")
 
         self.config              = config
 
@@ -102,8 +102,6 @@ class Scheme:
         N            = self.totalN
         Ll           = -self.dx * self.ghostBoundarySize
         Lh           = self.boxWidth + self.dx * self.ghostBoundarySize
-
-        print("Setting up grid")
 
         #Create 1D grid
         xlin = np.linspace(Ll, Lh, num=N + 1)  # Note: x=0 & x=1 are the same point!
@@ -201,22 +199,22 @@ class Scheme:
         if not self.usePeriodicBC:
             self.setBoundaryConditions(self.fields)
 
-        un = self.fields
+        un = self.kick1(self.fields, dt)
 
         if self.outputTimestep:
             print(f"t = {self.t} dt = {dt} ")
 
         if self.timeOrder == 1:
-            self.fields = un + 1 / 1 * self.getUpdatedFields(dt, un)
+            un = un + 1 / 1 * self.getUpdatedFields(dt, un)
 
         elif self.timeOrder == 2:
             u1 = un + self.getUpdatedFields(dt, un)
-            self.fields = 1 / 2 * un + 1 / 2 * u1 + self.getUpdatedFields(1/2 * dt, u1)
+            un = 1 / 2 * un + 1 / 2 * u1 + self.getUpdatedFields(1/2 * dt, u1)
 
         elif self.timeOrder == 3:
             u1 = un + self.getUpdatedFields(dt, un)
             u2 = 3 / 4 * un + 1 / 4 * u1 +  self.getUpdatedFields(1/4 * dt, u1)
-            self.fields = 1 / 3 * un + 2 / 3 * u2 + self.getUpdatedFields(2/3 * dt, u2)
+            un = 1 / 3 * un + 2 / 3 * u2 + self.getUpdatedFields(2/3 * dt, u2)
 
         elif self.timeOrder == 4:
             u1 = un + self.getUpdatedFields(0.39175222700392 * dt, un)
@@ -235,7 +233,7 @@ class Scheme:
                 + 0.82192004589227 * u3
                 + self.getUpdatedFields(0.54497475021237 * dt, u3)
             )
-            self.fields = (
+            un = (
                 0.00683325884039 * un
                 + 0.51723167208978 * u2
                 + 0.12759831133288 * u3
@@ -246,8 +244,19 @@ class Scheme:
         else:
             raise ValueError("Invalid time order")
 
+        self.fields = self.kick2(un, dt)
+
 
         self.t += dt * self.getScaleFactor() ** 2
+
+    #Dummy function for implementation of first kick in kick-drift-kick scheme
+    def kick1(self, fields, dt):
+        return fields
+
+    #Dummy function for implementation of second kick in kick-drift-kick scheme
+    #Here the gravitational potential should be updated
+    def kick2(self, fields, dt):
+        return fields
 
     def getName(self):
         raise NotImplementedError("Please Implement this method")
@@ -258,7 +267,6 @@ class SchroedingerScheme(Scheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
 
-        print("Reading in initial conditions")
         self.psi = self.generateIC(*self.grid, self.dx, self.t)
         self.potential = np.zeros(self.psi.shape, dtype=np.float128)
         self.eta = 1 #hbar / m
