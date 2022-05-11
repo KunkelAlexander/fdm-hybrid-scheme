@@ -19,6 +19,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
         
         self.turnOffConvection      = config["turnOffConvection"]
         self.turnOffDiffusion = config["turnOffDiffusion"]
+        self.friction = config["friction"]
 
         self.vmax = 0 
         self.amax = 0
@@ -53,9 +54,12 @@ class PhaseScheme(schemes.SchroedingerScheme):
         # CFL-condition for advection: dt < CFL * dx / (sum |v_i|)
         # CFL-condition for diffusion: dt < CFL * hbar/m * dx^2
         # CFL-condition based on acceleration for n-body methods
-        t1 = 0.125  * self.eta*self.dx*self.dx
-        t2 = .5 * 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
-        t3 = .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
+        #t1 = 0.125  * self.eta*self.dx*self.dx
+        #t2 = .5 * 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
+        #t3 = .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
+        t1 = 1/6  * self.eta*self.dx*self.dx
+        t2 = 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
+        t3 = 0.4 * (self.dx/(self.amax + 1e-8))**0.5
         #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
         return np.min([t1, t2, t3])
         
@@ -146,6 +150,8 @@ class UpwindScheme(PhaseScheme):
                     print(f"Peclet S_r: max = {np.max(peclet_sr)} min = {np.min(peclet_sr)}, Peclet S_i: max = {np.max(peclet_si)} min = max = {np.min(peclet_si)}")
 
             ### COMPUTE QUANTUM PRESSURE ###
+            if self.friction > 0:
+                dphase += self.friction * (phase - np.mean(phase))
 
             if self.turnOffDiffusion == False:
                 dphase -= self.eta**2 * 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
@@ -242,10 +248,10 @@ class HOUpwindScheme(PhaseScheme):
         self.fields[1] -= dt/2 * self.potential
 
         u0 = self.fields 
-        ddensity1, dphase1, v2 = getHODrift(u0[0], u0[1], 1.0 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
+        ddensity1, dphase1, v2 = getHODrift(u0[0], u0[1], 0.5 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
         u1 = u0 + np.array([ddensity1, dphase1])
-        ddensity2, dphase2, v1 = getHODrift(u1[0], u1[1], 0.5 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
-        self.fields = 0.5 * u0 + 0.5 * u1 + np.array([ddensity2, dphase2])
+        ddensity2, dphase2, v1 = getHODrift(u1[0], u1[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion)
+        self.fields = u0 + np.array([ddensity2, dphase2])
 
         #update potential
         self.potential = self.computePotential(self.fields[0])

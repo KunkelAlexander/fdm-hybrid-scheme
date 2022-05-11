@@ -75,7 +75,10 @@ class MUSCLHancock(schemes.SchroedingerScheme):
 
 
         if self.fluidMode == c.INTEGRATE_V:
-            self.integrationOrigin        = tuple(((np.array(self.config["integrationOrigin"]) * self.boxWidth)/self.dx).astype(int))
+            if "integrationOrigin" in self.config:
+                self.integrationOrigin        = tuple(((np.array(self.config["integrationOrigin"]) * self.boxWidth)/self.dx).astype(int))
+            else:
+                self.integrationOrigin    = np.zeros(self.dimension, dtype=int)
             self.integrationConstant      = self.phase[self.integrationOrigin]
 
         self.velocities         = getCenteredGradient(self.phase, self.dx)

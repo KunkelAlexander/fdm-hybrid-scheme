@@ -75,7 +75,11 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "useAdaptiveYlim": False,
         "plotDensityLogarithm": True,
         "plotPhaseMod2": True,
-        "dpi" : 80, 
+        "dpi" : 300, 
+        "figsize": [3.54, 3.54],
+        "plotDebug": True,
+        "plotPhase": True,
+        "savePlots": False,
 
         #Phase scheme options
         "artificialDiffusion"   : 1,
@@ -85,10 +89,10 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "turnOffConvection"     : False,
         "turnOffDiffusion"      : False,
         "turnOffSource"         : False,
+        "friction"              : 0.0,
 
         #Fluid scheme options
         "fluidMode"             : INTEGRATE_V,
-        "integrationOrigin"     : [0, 0],
         "useSlopeLimiting"      : False, #Fluid-only option
         "maxSpeedC"             : 1.0, #Fluid-only option
     }

@@ -165,7 +165,7 @@ class Scheme:
     def getScaleFactor(self):
         return 1
 
-    def run(self, tfin = None):
+    def run(self, tfin = None, enableBackward = False):
         if tfin is None:
             tfin = self.tEnd
         i = 0
@@ -180,6 +180,20 @@ class Scheme:
             if i > self.ntmax:
                 print("Maximum number of timesteps reached. Aborting.")
                 break
+        
+        if enableBackward:
+            while(tfin < self.t):
+                dt = self.getTimeStep()
+
+                if (self.t - tfin < dt):
+                    dt = self.t - tfin
+
+                self.step(-dt)
+                i += 1
+                if i > self.ntmax:
+                    print("Maximum number of timesteps reached. Aborting.")
+                    break
+        print(f"Finished in {i} time steps")
 
     #Implement first to fourth order TVD-RK integrator by default
     #Can be overwritten in children classes to implement different time integration

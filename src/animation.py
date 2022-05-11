@@ -29,11 +29,31 @@ def getTimePerFrame(config):
     return tUpdate
 
 
+
+"""""" """""" """""" """""" """"""
+"""""" """"" Stability """ """""" ""
+"""""" """""" """""" """""" """"""
+
+def computeEnergy(density, phase, potential, dx):
+    I = 0
+    J = 0
+    for i in range(density.ndim):
+        I += 0.5 * fd.getCenteredGradient(np.sqrt(density), dx, axis=i)**2
+        J += 0.5 * density * fd.getCenteredGradient(phase, dx, axis=i)**2 
+    W = 0.5 * density * potential
+
+    E = np.sum(I + J + W)
+    return E
+
+def computeTruncationError(solver, density, density_ref):
+    rms_error = np.sum(np.abs(density[solver.inner]- density_ref[solver.inner])) / (
+        (solver.t / solver.dt) * solver.innerN ** (solver.dimension)
+    )
+    return rms_error
+
 """""" """""" """""" """""" """"""
 """""" """""  1D    """ """""" ""
 """""" """""" """""" """""" """"""
-
-# 
 
 plt.rcParams["font.size"] = 8
 plt.rcParams['font.family'] = 'serif'
@@ -41,7 +61,7 @@ plt.rcParams['font.family'] = 'serif'
 #plt.rcParams['font.monospace'] = 'Ubuntu Mono'
 #plt.rcParams['axes.labelweight'] = 'bold'
 plt.rcParams['figure.titlesize'] = 12
-plt.rcParams["font.family"] = "DejaVuSans"
+plt.rcParams["font.family"] = "DejaVu Sans"
 
 def create1DFrame(
     solver,
@@ -52,78 +72,127 @@ def create1DFrame(
     waveSolver=None, 
     advection = False, 
 ):
+    plotPhase       = config["plotPhase"]
+    plotDebug       = config["plotDebug"]
+
     xlim            = config["xlim"]
     ylim            = config["densityYlim"]
     ylim2           = config["phaseYlim"]
     mod2Phase       = config["plotPhaseMod2"]
     useAdaptiveYlim = config["useAdaptiveYlim"]
 
-    # prep figure
-    fig = plt.figure(figsize=(9, 18), dpi=config["dpi"])
-    grid = plt.GridSpec(3, 1, wspace=0.0, hspace=0.2)
-    ax1 = fig.add_subplot(grid[0, 0])
-    ax2 = fig.add_subplot(grid[1, 0])
-    ax3 = fig.add_subplot(grid[2, 0])
+    nrows = 1 
+    ncols = 1
+    if plotPhase:
+        ncols = 2
+    if plotDebug:
+        nrows = 2
 
-    # Switch to axis 1
+    figsize = np.array(config["figsize"])
+    figsize[0] *= ncols 
+    figsize[1] *= nrows
+
+    # prep figure
+    fig = plt.figure(figsize=figsize, dpi=config["dpi"])
+
+
+    grid = plt.GridSpec(nrows, ncols, wspace=0.0, hspace=0.4)
+    ax1 = fig.add_subplot(grid[0, 0])
+
+
+    # Switch to axis 1 for density plots
     plt.sca(ax1)
     # Clear axis
     plt.cla()
     # Plot background
-    (im1,) = plt.plot([], [], "ro", ms=3, label=label)
-    if waveSolver is None:
-        label2 = "analytical solution"
+    (im1,) = plt.plot([], [], "ro",  ms=3)
+    (im3,) = plt.plot([], [], "b",   ms=1)
+
+    plt.xticks()
+    plt.yticks()
+
+    # Set axis ratios
+    plt.xlim(xlim)
+    plt.xlabel("position $x$")
+
+    if advection:
+        plt.ylabel(r"$u(x)$")
     else:
-        label2 = "wave scheme"
-    (im3,) = plt.plot([], [], "b", ms=1, label=label2)
+        plt.ylabel(r"$|\psi|^2$")
 
-    # highlight1 = plt.axvspan(0, 0, color='black', alpha=0.3)
-    plt.legend()
-
-    # Switch to axis 1
-    plt.sca(ax2)
-    # Clear axis
-    plt.cla()
-    # Plot background
-    (im2,) = plt.plot([], [], "ro", ms=3)
-    (im4,) = plt.plot([], [], "bo", ms=1)
-    # highlight2 = plt.axvspan(0, 0, color='black', alpha=0.3)
-
-
-    # Switch to axis 1
-    plt.sca(ax3)
-    # Clear axis
-    plt.cla()
-    # Plot background
-    (im5,) = plt.plot([], [], "ro", ms=3, label = "density")
-    (im6,) = plt.plot([], [], "bo", ms=1, label = "phase")
-    plt.legend(loc = "upper right")
-    # highlight2 = plt.axvspan(0, 0, color='black', alpha=0.3)
-    # Set axis ratios
-
-    # Set axis ratios
-    ax1.set_xlim(xlim)
-    ax1.set_title(r"$|\psi|^2$")
-    ax2.set_xlim(xlim)
-    ax2.set_title(r"${\rm angle}(\psi)$")
-    ax3.set_xlim(xlim)
-    ax3.set_title(r"relative error")
     if not useAdaptiveYlim:
-        ax1.set_ylim(ylim)
-        ax2.set_ylim(ylim2)
-    ax3.set_ylim([0, .1])
+        plt.ylim(ylim)
+
+    if plotPhase:
+        ax2 = fig.add_subplot(grid[0, 1])
+
+        # Switch to axis 1
+        plt.sca(ax2)
+        # Clear axis
+        plt.cla()
+            
+        if waveSolver is None:
+            label2 = "analytical solution"
+        else:
+            label2 = "wave scheme"
+
+        # Plot background
+        (im2,) = plt.plot([], [], "ro", ms=3, label=label)
+        (im4,) = plt.plot([], [], "bo", ms=1, label=label2)
+
+        plt.xticks()
+        plt.yticks()
+        # Set axis ratios
+        plt.xlim(xlim)
+        plt.xlabel("position $x$")
+        plt.ylabel(r"${\rm angle}(\psi)$")
+        ax2.yaxis.tick_right()
+        ax2.yaxis.set_label_position("right")
+
+        leg = plt.legend(loc = "upper right")
+        leg.get_frame().set_linewidth(0.0)
+        
+        if not useAdaptiveYlim:
+            plt.ylim(ylim2)
+    else:
+        #Draw invisible plots in order for the handles to exist
+        (im2,) = plt.plot([], [], "ro", alpha=1)
+        (im4,) = plt.plot([], [], "bo", alpha=1)
+
+    if plotDebug:
+        ax3 = fig.add_subplot(grid[1, :])
+
+        # Switch to axis 1
+        plt.sca(ax3)
+        # Clear axis
+        plt.cla()
+        # Plot background
+        (im5,) = plt.plot([], [], "ro", ms=3, label = "density")
+        (im6,) = plt.plot([], [], "bo", ms=1, label = "phase")
+
+        # Set axis ratios
+        plt.xlim(xlim)
+        plt.ylabel(r"relative error")
+        plt.xlabel("position $x$")
+        
+
+        if not useAdaptiveYlim:
+           plt.ylim([0, .1])
+    else:
+        #Draw invisible plots in order for the handles to exist
+        (im5,) = plt.plot([], [], "ro", alpha=1)
+        (im6,) = plt.plot([], [], "bo", alpha=1)
 
 
-    time_text = ax3.text(0.02, 0.95, "", transform=ax3.transAxes)
-    norm_text = ax3.text(0.02, 0.90, "", transform=ax3.transAxes)
+    time_text = ax1.text(0.02, 0.9, "", transform=ax1.transAxes)
+
+    if plotDebug:
+        norm_text = ax3.text(0.02, 0.8, "", transform=ax3.transAxes)
+    else:
+        norm_text = ax1.text(0.02, 0.90, "", transform=ax1.transAxes, alpha=0)
 
     # initialization function: plot the background of each frame
-
     def init():
-        ax1.set_title(r"$|\psi|^2$")
-        ax2.set_title(r"${\rm angle}(\psi)$")
-        ax3.set_title(r"relative error")
-
         im1.set_data([], [])
         im2.set_data([], [])
         im3.set_data([], [])
@@ -133,27 +202,19 @@ def create1DFrame(
 
         time_text.set_text("")
         norm_text.set_text("")
-
-        subregion_patches = []
-
-        # , highlight1, highlight2
-        return im1, im2, im3, im4, im5, im6, subregion_patches, time_text, norm_text
+        
+        return im1, im2, im3, im4, im5, im6, time_text, norm_text
 
     def draw(i):
-        # Get fluid solution
-        density = solver.getDensity()
-        phase = solver.getPhase()
-        t = solver.getTime()
-        a = solver.getScaleFactor()
-        xx = solver.getGrid()[0]
-        dx = solver.dx
+        density   = solver.getDensity()
+        phase     = solver.getPhase()
+        if not advection:
+            potential = solver.getPotential()
+        t         = solver.getTime()
+        a         = solver.getScaleFactor()
+        xx        = solver.getGrid()[0]
+        dx        = solver.dx
 
-        im1.set_data(xx, density)
-
-        if mod2Phase:
-            im2.set_data(xx, np.angle(np.exp(1j * phase)))
-        else:
-            im2.set_data(xx, phase)
 
         # Get phase or analytical solution
         if waveSolver is None:
@@ -167,27 +228,36 @@ def create1DFrame(
             psi_ref = waveSolver.getPsi()
             density_ref = np.abs(psi_ref) ** 2
 
+        im1.set_data(xx, density)
+        im3.set_data(xx, density_ref)
 
-        if not advection:
+        if plotPhase:
             if mod2Phase:
+                im2.set_data(xx, np.angle(np.exp(1j * phase)))
                 phase_ref = np.angle(psi_ref)
             else:
+                im2.set_data(xx, phase)
                 phase_ref = fd.make_1d_continuous(np.angle(psi_ref))
 
-        rms_error = 0
 
-        if t != 0:
-            rms_error = np.sqrt(np.sum((density[solver.inner]- density_ref[solver.inner]) ** 2)) / (
-                (solver.t / solver.dt) * solver.innerN ** (solver.dimension)
-            )
-        im3.set_data(xx, density_ref)
-        im4.set_data(xx, phase_ref)
+            im4.set_data(xx, phase_ref)
 
-        density_relerr = np.abs(density - density_ref)/(density_ref + 1e-8 * (density_ref == 0))
-        phase_relerr   = np.abs(phase   - phase_ref)  /(phase_ref + 1e-8 * (phase_ref == 0))
+        if plotDebug:
+            rms_error = 0
 
-        im5.set_data(xx, density_relerr)
-        im6.set_data(xx, phase_relerr)
+            if t != 0:
+                rms_error = computeTruncationError(solver, density, density_ref)
+
+
+            density_relerr = np.abs(density - density_ref)/(density_ref + 1e-8 * (density_ref == 0))
+            im5.set_data(xx, density_relerr)
+
+            if plotPhase:
+                E1 = computeEnergy(density, phase, potential, solver.dx)
+                E2 = computeEnergy(density_ref, phase_ref, potential, solver.dx)
+                
+                phase_relerr   = np.abs(phase   - phase_ref)  /(phase_ref + 1e-8 * (phase_ref == 0))
+                im6.set_data(xx, phase_relerr)
 
 
         subregion_patches = []
@@ -200,24 +270,33 @@ def create1DFrame(
                         c = "blue"
                     else:
                         c = "gray"
+
                     pol1 = ax1.axvspan(pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)
-                    pol2 = ax2.axvspan(pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)
-                    pol3 = ax3.axvspan(pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)
                     subregion_patches.append(pol1)
-                    subregion_patches.append(pol2)
-                    subregion_patches.append(pol3)
+
+                    if plotPhase:
+                        pol2 = ax2.axvspan(pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)
+                        subregion_patches.append(pol2)
+
+                    if plotDebug:
+                        pol3 = ax3.axvspan(pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)
+                        subregion_patches.append(pol3)
 
         time_text.set_text("Time t = %.5f" % (t))
-        norm_text.set_text(
-            r"$\int \mathrm{d}x|\psi|^2$"
-            +" = %.3f, %.3f (wave/ana, phase), RMS error = .%.3e"
-            % (np.mean(density_ref), np.mean(density), rms_error)
-        )
 
-        if os.path.exists(f"plots/1d/{filename}/"):
-            plt.savefig(f"plots/1d/{filename}.jpg")
+        if plotDebug:
+            debug_information = r"$\int \mathrm{d}x|\psi|^2$"+ "= %.3f, %.3f (wave/ana, phase), RMS error = .%.3e" % (np.mean(density_ref), np.mean(density), rms_error)
 
-        if os.path.exists(f"runs/1d/{filename}/"):
+            if plotPhase:
+                debug_information += f"\n E_num = {E1:.4f}, E_ana = {E2:.4f}"
+
+            norm_text.set_text(debug_information)
+
+
+        if solver.config["savePlots"]:
+            plt.savefig(f"plots/1d/{filename}.pdf", bbox_inches='tight')
+
+        if os.path.exists(f"runs/1d/{filename}"):
             np.savez_compressed(
                 f"runs/1d/{filename}/{i}.npz",
                 config=np.array(list(config.items()), dtype=object),
@@ -228,124 +307,7 @@ def create1DFrame(
                 psi=psi_ref,
             )
 
-        # , highlight1, highlight2
-        return im1, im2, im3, im4, im5, im6, subregion_patches, time_text, norm_text
-
-    return fig, init, draw
-
-
-def createPretty1DFrame(
-    solver,
-    label,
-    config,
-    analyticalSolution,
-    filename,
-    waveSolver=None, 
-    advection = False, 
-):
-    xlim            = config["xlim"]
-    ylim            = config["densityYlim"]
-    ylim2           = config["phaseYlim"]
-    mod2Phase       = config["plotPhaseMod2"]
-    useAdaptiveYlim = config["useAdaptiveYlim"]
-
-    # prep figure
-    fig, ax1 = plt.subplots(figsize=config["size"], dpi=config["dpi"])
-
-    # Switch to axis 1
-    plt.sca(ax1)
-    # Clear axis
-    plt.cla()
-    # Plot background
-    (im1,) = plt.plot([], [], "ro", ms=3, label=label)
-    if waveSolver is None:
-        label2 = "analytical solution"
-    else:
-        label2 = "wave scheme"
-    (im3,) = plt.plot([], [], "b", ms=1, label=label2)
-
-
-    # Set axis ratios
-    ax1.set_xlim(xlim)
-    if not useAdaptiveYlim:
-        ax1.set_ylim(ylim)
-
-    ax1.set_ylabel("$u(x)$")
-    ax1.set_xlabel("position $x$")
-
-    # highlight1 = plt.axvspan(0, 0, color='black', alpha=0.3)
-    leg = plt.legend(loc = "upper right")
-    leg.get_frame().set_linewidth(0.0)
-
-
-    time_text = ax1.text(0.02, 0.95, "", transform=ax1.transAxes)
-
-    # initialization function: plot the background of each frame
-
-    def init():
-        #ax1.set_title(r"$|\psi|^2$")
-
-        im1.set_data([], [])
-        im3.set_data([], [])
-
-        time_text.set_text("")
-
-        subregion_patches = []
-
-        # , highlight1, highlight2
-        return im1, im3, time_text
-
-    def draw(i):
-        # Get fluid solution
-        density = solver.getDensity()
-        phase   = solver.getPhase()
-        t = solver.getTime()
-        a = solver.getScaleFactor()
-        xx = solver.getGrid()[0]
-        dx = solver.dx
-
-        im1.set_data(xx, density)
-
-        # Get phase or analytical solution
-        if waveSolver is None:
-            if advection:
-                psi_ref, phase_ref = analyticalSolution(xx, dx, t)
-                density_ref = psi_ref 
-            else:
-                psi_ref = analyticalSolution(xx, dx, t)
-                density_ref = np.abs(psi_ref) ** 2
-        else:
-            psi_ref = waveSolver.getPsi()
-            density_ref = np.abs(psi_ref) ** 2
-
-
-        if not advection:
-            if mod2Phase:
-                phase_ref = np.angle(psi_ref)
-            else:
-                phase_ref = fd.make_1d_continuous(np.angle(psi_ref))
-
-        im3.set_data(xx, density_ref)
-        
-
-        time_text.set_text("Time t = %.5f" % (t))
-
-        #if os.path.exists(f"plots/1d/{filename}/"):
-        if solver.config["savePlots"]:
-            plt.savefig(f"plots/1d/{filename}.pdf", bbox_inches='tight')
-
-        #if os.path.exists(f"runs/1d/{filename}/"):
-        #    np.savez_compressed(
-        #        f"runs/1d/{filename}/{i}.npz",
-        #        config=np.array(list(config.items()), dtype=object),
-        #        t=t,
-        #        a=a,
-        #        density=density,
-        #        phase=phase,
-        #        psi=psi_ref,
-        #    )
-
-        return im1, im3, time_text
+        return im1, im2, im3, im4, im5, im6, time_text, norm_text
 
     return fig, init, draw
 
@@ -836,29 +798,6 @@ def drawFrame(
     init()
     draw(0)
 
-def drawPrettyFrame(
-    solver,
-    analyticalSolution=None,
-    label = None,
-    filename = None,
-    waveSolver=None,
-    advection=False, 
-):
-    if analyticalSolution == None:
-        analyticalSolution = solver.generateIC
-    if label == None:
-        label = solver.getName()
-    if filename == None:
-        filename = solver.getName().replace(" ", "_")
-
-    config = solver.config
-    dim = config["dimension"]
-
-    fig, init, draw = createPretty1DFrame(
-        solver = solver, config = config, analyticalSolution = analyticalSolution, filename = filename, label = label, waveSolver = waveSolver, advection = advection
-    )
-    init()
-    draw(0)
 
 def createAnimation(
     solver,

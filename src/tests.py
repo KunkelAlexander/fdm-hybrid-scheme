@@ -28,6 +28,10 @@ def normalise(psi):
     norm = np.mean(np.abs(psi)**2)
     return psi/np.sqrt(norm + (norm == 0) * 1e-12)
 
+def generate1DUniform(x, dx, t):
+    psi = np.ones(x.shape, dtype=complex)
+    return normalise(psi)
+
 # Generate analytical solution for the 1D free Schrödinger equation
 # Li test 1
 def generate1DGaussian(x0, x, t, alpha=1.0 / 10):
