@@ -7,6 +7,7 @@ from IPython.display import display, Markdown, Latex
 import src.wave_schemes as wave_schemes
 import src.phase_schemes as phase_schemes
 import src.fluid_schemes as fluid_schemes
+import src.hybrid_scheme as hybrid_scheme 
 
 import src.tests as tests
 import src.config as config
@@ -32,12 +33,17 @@ def getBaseConfig():
     c["usePeriodicBC"]       = False
     c["gravity"]             = 0
     c["nThreads"]            = 4
-    c["fps"] = 20
+    c["fps"] = 10
+    c["dpi"] = 80
     return c
 
 
 def ftcsConfig(c):
-    c["stencilOrder"] = 6
+    c["stencilOrder"] = 2
+    c["timeOrder"]    = 2
+
+def hoftcsConfig(c):
+    c["stencilOrder"] = 4
     c["timeOrder"]    = 2
 
 def cnConfig(c):
@@ -117,6 +123,16 @@ def musclHancockConfig(c):
     c["stencilOrder"] = 2
     c["timeOrder"] = 2
 
+def hybridConfig(c):
+    c["timeOrder"] = 2
+    c["stencilOrder"] = 4
+    c["debug"] = False
+    c["useAdaptiveSubregions"] = True
+    c["outputTimestep"] = True
+    c["useAdaptiveTimestep"] = True 
+    c["nThreads"] = 2
+    c["useHybrid"] = True
+
 def standingWaveConfig(c):
     c["tEnd"] = 6
     c["slowDown"] = 1
@@ -137,8 +153,8 @@ def oscillatorCoherentStateConfig(c):
     c["domainSize"] = 14
     c["xlim"] = [0, 14]
     c["densityYlim"] = [0, 10]
-    c["tEnd"] = 4 * np.pi
-    c["useAdaptiveYlim"] = True
+    c["plotPhaseMod2"] = True
+    c["tEnd"] = 2 * np.pi
 
 def fastOscillatorCoherentStateConfig(c):
     c["domainSize"] = 4
@@ -154,16 +170,16 @@ def infiniteWellConfig(c):
 
 def perturbationWaveConfig(c):
     c["usePeriodicBC"] = True
-    c["resolution"] = 64
+    c["resolution"] = 32
     c["tEnd"] = 1/(2*np.pi*3*0.5)
     c["domainSize"] = 1
-    N = 2
+    N = 1
     k = 2*np.pi / (N * c["domainSize"])
     eta = 1
     omega = 0.5/eta * k**2
     tEnd = 2*np.pi / omega
     print("tEnd", tEnd)
-    config["tEnd"] = tEnd
+    c["tEnd"] = tEnd
     #config["tEnd"] = 1/(2*np.pi*3*0.5) , omega = 0.5/Eta * sum k_i^2 t = 2pi/omega
 
     c["xlim"] = [0, 1]
@@ -186,12 +202,13 @@ def stabilityTestConfig(c):
 def accuracyTestConfig(c):
     c["usePeriodicBC"] = True
     c["resolution"] = 16
-    N = 2
+    N = 1
     k = 2*np.pi / (N * c["domainSize"])
     eta = 1
     omega = 0.5/eta * k**2
     tEnd = 2*np.pi / omega
     print("tEnd", tEnd)
+    c["tEnd"] = 0.1
     c["domainSize"] = 1
     c["xlim"] = [0, 1]
     c["densityYlim"] = [0.7, 1.3]
@@ -225,6 +242,14 @@ def expandingSolitonConfig(c):
 def li1Config(c):
     c["resolution"] = 128
     c["tEnd"] = .25
+    c["domainSize"] = 4
+    c["xlim"] = [0, 4]
+    c["densityYlim"] = [0, 25]
+    c["slowDown"] = 20
+
+def periodicLi1Config(c):
+    c["resolution"] = 64
+    c["tEnd"] = .1
     c["domainSize"] = 4
     c["xlim"] = [0, 4]
     c["densityYlim"] = [0, 25]
@@ -298,8 +323,8 @@ def accuracyTest2DConfig(c):
 
     c["domainSize"] = 1
     c["xlim"] = [0, 1]
-    c["densityYlim"] = [0.8, 1.2]
-    c["phaseYlim"] = [-0.05, 0.05]
+    c["densityYlim"] = [0.98, 1.02]
+    c["phaseYlim"] = [-0.01, 0.01]
     c["plotDensityLogarithm"] = False
     c["slowDown"] = 1
     c["fps"] = 1
@@ -307,27 +332,48 @@ def accuracyTest2DConfig(c):
 def perturbationWave2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
-    c["resolution"] = 16
-    c["tEnd"] = 1/(2*np.pi*3*0.5)
+    c["resolution"] = 32
+    N = 1
+    k = 2*np.pi / (N * c["domainSize"])
+    eta = 1
+    omega = 0.5/eta * (2 * k**2)
+    tEnd = 2*np.pi / omega
+    print("tEnd", tEnd)
+    c["tEnd"] = tEnd
     c["domainSize"] = 1
     c["xlim"] = [0, 1]
     c["densityYlim"] = [0.6, 1.4]
-    c["cfl"] = .2
-    c["slowDown"] = 2/c["tEnd"] 
+    c["slowDown"] = 5/c["tEnd"] 
 
 def soliton2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
     c["domainSize"] = 25
-    c["resolution"] = 128
-    c["tEnd"] = 1.5
-    c["domainSize"] = 10
-    c["slowDown"] = 5
+    c["resolution"] = 256
+    c["tEnd"] = 2
+    c["slowDown"] = 10
     c["plotPhaseMod2"] = False
     c["phaseYlim"] = [-50, 50]
     c["densityYlim"] = [0, 1]
     c["gravity"] = 1
+    c["fps"] = 1
 
+def perturbationWave3DConfig(c):
+    c["dimension"] = 3
+    c["usePeriodicBC"] = True
+    c["resolution"] = 16
+    N = 1
+    k = 2*np.pi / (N * c["domainSize"])
+    eta = 1
+    omega = 0.5/eta * (3 * k**2)
+    tEnd = 2*np.pi / omega
+    print("tEnd", tEnd)
+    c["tEnd"] = tEnd
+    c["domainSize"] = 1
+    c["xlim"] = [0, 1]
+    c["densityYlim"] = [0.98, 1.02]
+    c["phaseYlim"] = [-0.01, 0.01]
+    c["slowDown"] = 5/c["tEnd"] 
 
 test_list = {
     "standing wave": [tests.standingWave, standingWaveConfig, None],
@@ -336,6 +382,7 @@ test_list = {
     "harmonic oscillator coherent state": [tests.oscillatorCoherentState1D, oscillatorCoherentStateConfig, lambda x: tests.oscillatorPotential1D(x, x0 = 7)],
     "infinite well": [tests.infiniteWell1D, infiniteWellConfig, None],
     "gaussian wave packet": [lambda x, dx, t: tests.li1(x, dx, t, x0=2), li1Config, None],
+    "periodic gaussian wave packet": [lambda x, dx, t: tests.periodicLi1(x, dx, t, x0=2, L = 4), periodicLi1Config, None],
     "hubble expansion": [lambda x, dx, t: tests.li1(x, dx, t, x0=2, eps = 1e-4), li1Config, None],
     "wide hubble expansion": [lambda x, dx, t: tests.li1(x, dx, t, x0=5, eps = 1e-4), hubbleExpansionConfig, None],
     "quasi-shock": [lambda x, dx, t: tests.li2(x, dx, t, x0 = 10), li2Config, None],
@@ -343,24 +390,41 @@ test_list = {
     "travelling wave packet": [tests.travellingWavePacket, travellingWavePacketConfig, None],
     "perturbation wave": [tests.cosmological1D, perturbationWaveConfig, None],
     "stability test": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=1e-1, Lx=1, N = 1), stabilityTestConfig, None],
-    "accuracy test": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=1e-1, Lx=1, N = 2), accuracyTestConfig, None],
+    "accuracy test": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=.4, Lx=1, N = 2), accuracyTestConfig, None],
     "soliton": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=10, N=10), solitonConfig, None],
     "expanding_soliton": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=10, N=10), expandingSolitonConfig, None],
-    "perturbation wave 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 1, Ly = 1, N = 3, eps= 0.1), perturbationWave2DConfig, None],
+    "perturbation wave 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
     "soliton 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 25, Ly = 25, N = 10, eps= 5e-3), soliton2DConfig, None],
-    "accuracy test 2D": [lambda xx, yy, dx, t: tests.cosmological2D(xx, yy, dx, t, eps=1e-1, Lx=1, Ly=1, N = 2), accuracyTest2DConfig, None],
+    "perturbation wave 3D": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), perturbationWave3DConfig, None],
 }
 
+def hoUpwindMCConfig(c):
+    hoUpwindConfig(c)
+    c["fluxLimiter"] = "MC"
+
+def hoUpwindALBADAConfig(c):
+    hoUpwindConfig(c)
+    c["fluxLimiter"] = "VANALBADA"
+
+def hoUpwindLEERConfig(c):
+    hoUpwindConfig(c)
+    c["fluxLimiter"] = "VANLEER"
 
 scheme_list = {
-    "wave-ftcs (forward in time, centered in space)": [wave_schemes.FTCSScheme, ftcsConfig],
+    "hybrid":[hybrid_scheme.HybridScheme, hybridConfig],
+    "wave-ftcs2": [wave_schemes.FTCSScheme, ftcsConfig],
+    "wave-ftcs4": [wave_schemes.FTCSScheme, hoftcsConfig],
     "wave-crank-nicolson": [wave_schemes.CNScheme, cnConfig],
     "wave-spectral": [wave_schemes.SpectralScheme, spectralConfig],
+    "phase-upwind": [phase_schemes.UpwindScheme, upwindConfig],
     "phase-upwind": [phase_schemes.UpwindScheme, upwindConfig],
     "phase-upwind with friction": [phase_schemes.UpwindScheme, upwindWithFrictionConfig],
     "phase-upwind without quantum pressure": [phase_schemes.UpwindScheme, upwindWithoutDiffusionConfig],
     "phase-upwind without convection": [phase_schemes.UpwindScheme, upwindWithoutConvectionConfig],
     "phase-ho-upwind": [phase_schemes.HOUpwindScheme, hoUpwindConfig],
+    "phase-ho-upwind_mc": [phase_schemes.HOUpwindScheme, hoUpwindMCConfig],
+    "phase-ho-upwind_albada": [phase_schemes.HOUpwindScheme, hoUpwindALBADAConfig],
+    "phase-ho-upwind_leer": [phase_schemes.HOUpwindScheme, hoUpwindLEERConfig],
     "phase-ho-upwind with friction": [phase_schemes.HOUpwindScheme, hoUpwindWithFrictionConfig],
     "phase-ho-upwind without diffusion": [phase_schemes.HOUpwindScheme, hoUpwindWithoutDiffusionConfig],
     "phase-ho-upwind without convection": [phase_schemes.HOUpwindScheme, hoUpwindWithoutConvectionConfig],

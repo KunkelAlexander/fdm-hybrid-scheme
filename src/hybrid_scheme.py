@@ -501,9 +501,9 @@ class HybridScheme(schemes.SchroedingerScheme):
         #dt < 0.25 * m/hbar * dx**2 from whistler-type waves
         #dt <= 1/2 * dx *(|H_x| + |H_y| + ...)^(-1) #Use |H_i| = |v_i|
         #dt <= 1/2 * dx *(sum_i |v_i|)
-        t1 = 1/6 * self.eta*self.dx*self.dx
-        t2 = 0.5 * self.dx/(self.vmax + 1e-8)
-        t3 = 0.4 * (self.dx/(self.amax + 1e-8))**0.5
+        t1 = 0.125 * self.eta*self.dx*self.dx
+        t2 = 0.5   * self.dx/(self.vmax + 1e-8)
+        t3 = 0.4   * (self.dx/(self.amax + 1e-8))**0.5
         #print("old vmax = ", self.vmaxp, " new vmax: ", self.vmax, " amax: ", self.amax, "Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
         return np.min([t1, t2, t3])
         

@@ -38,7 +38,7 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         # Scheme options
         "timeOrder": 1,
         "stencilOrder": 1,
-        "fluxLimiter": "VANALBADA",
+        "fluxLimiter": "SMART",
 
         # Gravity & cosmology
         "gravity": 0,  # Turn on self-gravity
@@ -75,8 +75,9 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "useAdaptiveYlim": False,
         "plotDensityLogarithm": True,
         "plotPhaseMod2": True,
-        "dpi" : 300, 
-        "figsize": [3.54, 3.54],
+        #Overwrite default settings
+        #"dpi" : 600, 
+        #"figsize": [3.54, 3.54],
         "plotDebug": True,
         "plotPhase": True,
         "savePlots": False,
@@ -90,6 +91,12 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "turnOffDiffusion"      : False,
         "turnOffSource"         : False,
         "friction"              : 0.0,
+        "limitHJ"               : True,
+        #CFL conditions for phase schemes
+        "C_parabolic"           : 0.125,
+        "C_velocity"            : 0.5,
+        "C_acceleration"        : 0.4,
+
 
         #Fluid scheme options
         "fluidMode"             : INTEGRATE_V,

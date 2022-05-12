@@ -41,7 +41,8 @@ fluxLimiterDictionary = {
     "VANALBADA"   : FluxLimiters.VANALBADA,     
     "SUPERBEE"    : FluxLimiters.SUPERBEE, 
     "MC"          : FluxLimiters.MC, 
-    "VANLEER"     : FluxLimiters.VANLEER
+    "VANLEER"     : FluxLimiters.VANLEER,
+    "SMART"       : FluxLimiters.SMART
 }
 
 class Scheme:

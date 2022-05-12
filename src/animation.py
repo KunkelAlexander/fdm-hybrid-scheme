@@ -88,12 +88,22 @@ def create1DFrame(
     if plotDebug:
         nrows = 2
 
-    figsize = np.array(config["figsize"])
+
+    # prep figure
+    if "figsize" in config:
+        figsize = np.array(config["figsize"])
+    else:
+        figsize = [3.54, 3.54]
+
     figsize[0] *= ncols 
     figsize[1] *= nrows
 
-    # prep figure
-    fig = plt.figure(figsize=figsize, dpi=config["dpi"])
+    if "dpi" in config:
+        dpi = config["dpi"]
+    else:
+        dpi = 600 
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
 
 
     grid = plt.GridSpec(nrows, ncols, wspace=0.0, hspace=0.4)
@@ -331,7 +341,17 @@ def create2DFrame(
     mod2Phase = config["plotPhaseMod2"]
 
     # prep figure
-    fig = plt.figure(figsize=(15, 15), dpi=config["dpi"])
+    if "figsize" in config:
+        figsize = config["figsize"]
+    else:
+        figsize = [3.54*3, 3.54*2]
+
+    if "dpi" in config:
+        dpi = config["dpi"]
+    else:
+        dpi = 600 
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
     grid = AxesGrid(
         fig,
         111,
@@ -372,13 +392,13 @@ def create2DFrame(
     im6 = ax6.imshow(np.random.random((N, N)), cmap="gray",    vmin=0, vmax=1)
     title6 = ax6.set_title(r"${\rm angle}(\psi)$ at t = $0$")
 
-    suptitle = ax6.text(.05, .8, "", fontsize=10, c="w", bbox=dict(facecolor='gray', alpha=0.5), transform=ax.transAxes)
+    suptitle = ax6.text(.05, .9, "", fontsize=10, c="w", bbox=dict(facecolor='gray', alpha=0.5), transform=ax.transAxes)
 
     cbar1 = plt.colorbar(im1, cax=grid.cbar_axes[0], ticks = [0, 0.25, 0.5, 0.75, 1])
     cbar1.ax.set_yticklabels(['-1', '0', '1', '2', '3'])
     plt.colorbar(im4, cax=grid.cbar_axes[1])
     
-    cax = inset_axes(ax6, "3%", "207%", loc=3, bbox_to_anchor=(1.25, 0, 1, 1), 
+    cax = inset_axes(ax6, "4%", "210%", loc=3, bbox_to_anchor=(1.25, 0, 1, 1), 
                     bbox_transform=ax6.transAxes, borderpad=0.0)
     cbar2 = plt.colorbar(im6, cax=cax, ticks=[0, .25, .5, .75, 1])
     cbar2.ax.set_yticklabels(['0%', '25%', '50%', '75%', '100%'])
@@ -399,6 +419,8 @@ def create2DFrame(
         # Phase scheme
         density = solver.getDensity()
         phase   = solver.getPhase()
+        if not advection:
+            potential = solver.getPotential()
         xx, yy  = solver.getGrid()
         t = solver.getTime()
         a = solver.getScaleFactor()
@@ -448,7 +470,8 @@ def create2DFrame(
                         pol2 = ax4.add_patch(rect2)
                         subregion_patches.append(rect1)
                         subregion_patches.append(rect2)
-#
+                print(f"{len(subregions)} wave scheme subregions with {solver.binaryTree.getWaveVolumeFraction() * 100} percent of volume.")
+        
         t = solver.getTime()
         a = solver.getScaleFactor()
 
@@ -478,38 +501,48 @@ def create2DFrame(
 
         im6.set_array(np.abs(np.angle(np.exp(1j * (phase - phase_ref)))/(np.abs(phase_ref) + 1e-8 * (phase_ref == 0))))
 
+
+
         current_time = (
             "t = "
             + f"{t:.3f}"
-            + f"; a = {a:.3f} \n"
-            + r"$\delta / \rho$ = "
-            + f"{rho_ratio:.1f}"
-            + r" and $\rho_{min}$ = "
-            + f"{rho_min:.2e} \n"
-            + r"total mass "
-            + "= %.3f, %.3f (wave/ana, phase) \nRMS error = .%.3e"
-            % (np.mean(density_ref), np.mean(density), rms_error)
+            + f"; a = {a:.3f}"
         )
+
+        if config["plotDebug"]:
+            current_time += (
+                  r"\n$\delta / \rho$ = "
+                + f"{rho_ratio:.1f}"
+                + r" and $\rho_{min}$ = "
+                + f"{rho_min:.2e} \n"
+                + r"total mass "
+                + "= %.3f, %.3f (wave/ana, phase) \nRMS error = .%.3e"
+                % (np.mean(density_ref), np.mean(density), rms_error)
+            )
+            if not advection:
+                E1 = computeEnergy(density, phase, potential, solver.dx)
+                E2 = computeEnergy(density_ref, phase_ref, potential, solver.dx)
+                current_time += (
+                    f"\n E_num = {E1:.4f} E_ana = {E2:.4f}"
+                )
         
 
         suptitle.set_text(current_time)
 
         title1.set_text(r"$\log_{10}(|\psi|^2)$ for " + label)
+        title4.set_text(r"$angle(\psi)$ for " + label)
 
         if waveSolver is None:
             title2.set_text(r"$\log_{10}(|\psi|^2)$ for analytical solution")
             title5.set_text(r"$angle(\psi)$ for analytical solution")
         else:
-            title2.set_text(r"$\log_{10}(|\psi|^2)$ wave scheme")
-            title5.set_text(r"$angle(\psi)$ wave scheme")
+            title2.set_text(r"$\log_{10}(|\psi|^2)$ for wave scheme")
+            title5.set_text(r"$angle(\psi)$ for wave scheme")
 
         title3.set_text(r"relative density error")
-        
-        title4.set_text(r"$angle(\psi)$ for " + label)
-
         title6.set_text(r"relative phase error")
 
-        plt.savefig(f"plots/2d/{filename}.jpg")
+        plt.savefig(f"plots/2d/{filename}.pdf", bbox_inches="tight")
 
         if os.path.exists(f"runs/2d/{filename}"):
             np.savez_compressed(
@@ -821,6 +854,7 @@ def createAnimation(
     #Create folders for run files and plots 
     os.makedirs(f"plots/{dim}d/{filename}", exist_ok=True)
     os.makedirs(f"runs/{dim}d/{filename}", exist_ok=True)
+    print("filename ", filename)
 
 
     fig, init, draw = createFrame(

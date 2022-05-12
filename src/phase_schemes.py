@@ -20,6 +20,9 @@ class PhaseScheme(schemes.SchroedingerScheme):
         self.turnOffConvection = config["turnOffConvection"]
         self.turnOffDiffusion  = config["turnOffDiffusion"]
         self.friction          = config["friction"]
+        self.C_parabolic       = config["C_parabolic"]
+        self.C_velocity        = config["C_velocity"]
+        self.C_acceleration    = config["C_acceleration"]
 
     def getDensity(self):
         return self.fields[0]
@@ -73,10 +76,10 @@ class PhaseScheme(schemes.SchroedingerScheme):
             self.vmax = np.maximum(np.max(np.abs((pp - pm)/(2*self.dx))), self.vmax)
             self.amax = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
 
-        t1 = 1/6  * self.eta*self.dx*self.dx
-        t2 = 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
-        t3 = 0.4 * (self.dx/(self.amax + 1e-8))**0.5
-        #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
+        t1 = self.C_parabolic    * self.eta*self.dx*self.dx
+        t2 = self.C_velocity     * self.dx/(self.dimension*(self.vmax + 1e-8))
+        t3 = self.C_acceleration * (self.dx/(self.amax + 1e-8))**0.5
+        
         return np.min([t1, t2, t3])
         
 
@@ -189,10 +192,9 @@ class UpwindScheme(PhaseScheme):
         return "upwind scheme"
 
 #Get high-order upwind drift by dt
-def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0):
+def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0, limiter = schemes.FluxLimiters.SMART, limitHJ = True):
     ddensity = np.zeros(density.shape)
     dphase   = np.zeros(phase.shape)
-    limiter  = schemes.FluxLimiters.SMART
     vmax = 0
 
     if friction > 0:
@@ -230,7 +232,7 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
         fm  = (np.maximum(vm, 0) * rb + np.minimum(vm, 0) * rc) + 1 / 2 * np.abs(vm) *  (1 - np.abs(vm * dt/dx)) * limiterqm * (rc - rb)
         fp  = np.roll(fm, fd.ROLL_R, axis = i)
         
-        if 1:
+        if limitHJ:
             #Slope-limited second order gradients (useful if phase develops discontinuities, could happen in hybrid scheme with 2 pi jump)
             ql = (pc-pm)/((pm-p2m) + (((pm-p2m)==0) * 1e-8))
             qc = np.roll(ql, fd.ROLL_R, axis = i)
@@ -316,9 +318,10 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
 class HOUpwindScheme(PhaseScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
+        self.limitHJ = config["limitHJ"]
 
     def getUpdatedFields(self, dt, fields):
-        ddensity, dphase, vmax = getHODrift(fields[0], fields[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion, friction=self.friction)
+        ddensity, dphase, vmax = getHODrift(fields[0], fields[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion, friction=self.friction, limiter = self.limiter, limitHJ = self.limitHJ)
         return np.array([ddensity, dphase])
 
     def getName(self):
@@ -641,15 +644,3 @@ class ConvectiveScheme(ConvectiveScheme):
         dfields = -np.array([dsr, dsi])
 
         return dfields * dt
-
-
-    def getAdaptiveTimeStep(self):
-        # Combination of 
-        # CFL-condition for advection: dt < CFL * dx / (sum |v_i|)
-        # CFL-condition for diffusion: dt < CFL * hbar/m * dx^2
-        # CFL-condition based on acceleration for n-body methods
-        t1 = 0.125  * self.eta*self.dx*self.dx
-        t2 = 0#.5 * 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
-        t3 = 0#.5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
-        #print("Advection: ", t2, " Diffusion: ", t1, " Acceleration: ", t3)
-        return np.min([t1, t2, t3])

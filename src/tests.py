@@ -45,7 +45,7 @@ def li1(x, dx, t, x0=0.5, alpha= 1/20, eps=0):
     psi += generate1DGaussian(x0, x, t, alpha)
     return normalise(psi)
 
-def periodicLi1(x, dx, t, x0=.5, alpha=1.0 / 10, eps=2, L=1, N=100):
+def periodicLi1(x, dx, t, x0=0.5, alpha= 1/20, eps=0, L=1, N=100):
     psi = eps + 0j
     N = 500
     for i in range(-N, N + 1):

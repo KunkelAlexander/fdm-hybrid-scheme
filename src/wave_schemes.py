@@ -74,7 +74,8 @@ class SpectralScheme(WaveScheme):
 class FTCSScheme(WaveScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-        self.cfl = .125
+        self.C_parabolic       = config["C_parabolic"]
+        self.cfl = self.C_parabolic
         
     def drift(self, dt):
         dx, u0 = self.dx, self.psi
