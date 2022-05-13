@@ -211,6 +211,8 @@ class Scheme:
         elif self.timeOrder == 2:
             u1 = un + self.getUpdatedFields(dt, un)
             un = 1 / 2 * un + 1 / 2 * u1 + self.getUpdatedFields(1/2 * dt, u1)
+            #u1 = un + self.getUpdatedFields(0.5 * dt, un)
+            #un = un + self.getUpdatedFields(1.0 * dt, u1)
 
         elif self.timeOrder == 3:
             u1 = un + self.getUpdatedFields(dt, un)

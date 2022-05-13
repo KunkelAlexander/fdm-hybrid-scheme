@@ -81,6 +81,8 @@ class FTCSScheme(WaveScheme):
         dx, u0 = self.dx, self.psi
         u1 = u0 + fd.solvePeriodicFTCSDiffusion(u0, dx = dx, dt = dt, coeff = self.c2_coeff, stencil = self.c2_stencil)
         self.psi = 0.5 * u0 + 0.5 * u1 + fd.solvePeriodicFTCSDiffusion(u1, dx = dx, dt = dt * 0.5, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        #u1 = u0 + fd.solvePeriodicFTCSDiffusion(u0, dx = dx, dt = 0.5 * dt, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        #self.psi =u0 + fd.solvePeriodicFTCSDiffusion(u1, dx = dx, dt = dt * 1.5, coeff = self.c2_coeff, stencil = self.c2_stencil)
 
     def getName(self):
         return "ftcs scheme"

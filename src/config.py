@@ -93,8 +93,8 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "friction"              : 0.0,
         "limitHJ"               : True,
         #CFL conditions for phase schemes
-        "C_parabolic"           : 0.125,
-        "C_velocity"            : 0.5,
+        "C_parabolic"           : 1/6,
+        "C_velocity"            : 0.25,
         "C_acceleration"        : 0.4,
 
 

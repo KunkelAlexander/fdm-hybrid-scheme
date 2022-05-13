@@ -55,8 +55,9 @@ def spectralConfig(c):
 
 
 def upwindConfig(c):
-    c["stencilOrder"] = 1
+    c["stencilOrder"] = 2
     c["timeOrder"]    = 4
+    c["C_velocity"] = 0.1
 
 def upwindWithFrictionConfig(c):
     c["stencilOrder"] = 1
@@ -74,12 +75,9 @@ def upwindWithoutConvectionConfig(c):
     c["turnOffConvection"] = True 
 
 def hoUpwindConfig(c):
-    c["stencilOrder"] = 4
-    c["timeOrder"] = 2
-
-def vhoUpwindConfig(c):
-    c["stencilOrder"] = 4
+    c["stencilOrder"] = 2
     c["timeOrder"] = 4
+    c["C_velocity"] = 0.25
 
 def hoUpwindWithFrictionConfig(c):
     c["stencilOrder"] = 4
@@ -155,6 +153,7 @@ def oscillatorCoherentStateConfig(c):
     c["densityYlim"] = [0, 10]
     c["plotPhaseMod2"] = True
     c["tEnd"] = 2 * np.pi
+    c["resolution"] = 64
 
 def fastOscillatorCoherentStateConfig(c):
     c["domainSize"] = 4
@@ -199,19 +198,19 @@ def stabilityTestConfig(c):
     c["fps"] = 1
     c["gravity"] = 1
 
-def accuracyTestConfig(c):
+def accuracyTest1DConfig(c):
     c["usePeriodicBC"] = True
-    c["resolution"] = 16
+    c["resolution"] = 8
     N = 1
     k = 2*np.pi / (N * c["domainSize"])
     eta = 1
     omega = 0.5/eta * k**2
     tEnd = 2*np.pi / omega
     print("tEnd", tEnd)
-    c["tEnd"] = 0.1
+    c["tEnd"] = tEnd
     c["domainSize"] = 1
     c["xlim"] = [0, 1]
-    c["densityYlim"] = [0.7, 1.3]
+    c["densityYlim"] = [0.95, 1.05]
     c["phaseYlim"] = [-0.05, 0.05]
     c["slowDown"] = 1
     c["fps"] = 1
@@ -358,6 +357,22 @@ def soliton2DConfig(c):
     c["gravity"] = 1
     c["fps"] = 1
 
+
+def soliton2DTestConfig(c):
+    c["dimension"] = 2
+    c["usePeriodicBC"] = True
+    c["domainSize"] = 25
+    c["resolution"] = 32
+    c["tEnd"] = 1
+    c["slowDown"] = 10
+    c["plotPhaseMod2"] = False
+    c["phaseYlim"] = [-50, 50]
+    c["densityYlim"] = [0, 1]
+    c["gravity"] = 1
+    c["fps"] = 1
+
+
+
 def perturbationWave3DConfig(c):
     c["dimension"] = 3
     c["usePeriodicBC"] = True
@@ -375,6 +390,41 @@ def perturbationWave3DConfig(c):
     c["phaseYlim"] = [-0.01, 0.01]
     c["slowDown"] = 5/c["tEnd"] 
 
+
+def soliton3DTestConfig(c):
+    c["dimension"] = 3
+    c["usePeriodicBC"] = True
+    c["domainSize"] = 8
+    c["resolution"] = 16
+    c["tEnd"] = 1
+    c["slowDown"] = 10
+    c["plotPhaseMod2"] = False
+    c["phaseYlim"] = [-50, 50]
+    c["densityYlim"] = [0, 1]
+    c["gravity"] = 1
+    c["fps"] = 1
+
+
+def accuracyTest3DConfig(c):
+    c["usePeriodicBC"] = True
+    c["dimension"] = 3
+    c["resolution"] = 8
+    N = 1
+    k = 2*np.pi / (N * c["domainSize"])
+    eta = 1
+    omega = 0.5/eta * (3 * k**2)
+    tEnd = 2*np.pi / omega
+    print("tEnd", tEnd)
+    c["tEnd"] = tEnd
+
+    c["domainSize"] = 1
+    c["xlim"] = [0, 1]
+    c["densityYlim"] = [0.98, 1.02]
+    c["phaseYlim"] = [-0.01, 0.01]
+    c["plotDensityLogarithm"] = False
+    c["slowDown"] = 1
+    c["fps"] = 1
+
 test_list = {
     "standing wave": [tests.standingWave, standingWaveConfig, None],
     "harmonic oscillator convergence": [tests.generate1DUniform, oscillatorConvergenceConfig, lambda x: tests.oscillatorPotential1D(x, x0 = 0.5)],
@@ -390,12 +440,16 @@ test_list = {
     "travelling wave packet": [tests.travellingWavePacket, travellingWavePacketConfig, None],
     "perturbation wave": [tests.cosmological1D, perturbationWaveConfig, None],
     "stability test": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=1e-1, Lx=1, N = 1), stabilityTestConfig, None],
-    "accuracy test": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=.4, Lx=1, N = 2), accuracyTestConfig, None],
+    "accuracy test 1D": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=1, N = 1), accuracyTest1DConfig, None],
     "soliton": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=10, N=10), solitonConfig, None],
     "expanding_soliton": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=10, N=10), expandingSolitonConfig, None],
     "perturbation wave 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
     "soliton 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 25, Ly = 25, N = 10, eps= 5e-3), soliton2DConfig, None],
+    "soliton 2D test": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DTestConfig, None],
+    "accuracy test 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],
     "perturbation wave 3D": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), perturbationWave3DConfig, None],
+    "soliton 3D test": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 8, Ly = 8, Lz = 8, N = 3, eps=5e-3), soliton3DTestConfig, None],
+    "accuracy test 3D": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
 }
 
 def hoUpwindMCConfig(c):
@@ -428,7 +482,6 @@ scheme_list = {
     "phase-ho-upwind with friction": [phase_schemes.HOUpwindScheme, hoUpwindWithFrictionConfig],
     "phase-ho-upwind without diffusion": [phase_schemes.HOUpwindScheme, hoUpwindWithoutDiffusionConfig],
     "phase-ho-upwind without convection": [phase_schemes.HOUpwindScheme, hoUpwindWithoutConvectionConfig],
-    "phase-vho-upwind": [phase_schemes.HOUpwindScheme, vhoUpwindConfig],
     "phase-lw-upwind": [phase_schemes.LaxWendroffUpwindScheme, lwUpwindConfig],
     "phase-ftcs-convective": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveConfig],
     "phase-ftcs-convective without diffusion": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveWithoutDiffusionConfig],
