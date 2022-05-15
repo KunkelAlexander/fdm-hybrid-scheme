@@ -35,7 +35,7 @@ def getBaseConfig():
     c["gravity"]             = 0
     c["nThreads"]            = 4
     c["fps"] = 10
-    c["dpi"] = 80
+    c["dpi"] = 300
     c["plotDebug"] = False
     return c
 
@@ -258,23 +258,25 @@ def periodicLi1Config(c):
 
 def hubbleExpansionConfig(c):
     c["resolution"] = 512
-    c["tEnd"] = .25
+    c["tEnd"] = .2
     c["domainSize"] = 10
     c["xlim"] = [0, 10]
     c["densityYlim"] = [0, 25]
-    c["slowDown"] = 20
+    c["slowDown"] = 50
+    c["plotPhaseMod2"] = False 
+    c["phaseYlim"] = [-40, 10]
 
 
 def li2Config(c):
     c["t0"] = 0.0025
-    c["tEnd"] = 0.01
+    c["tEnd"] = 0.0076
     c["resolution"] = 4096
     c["domainSize"] = 20
-    c["xlim"] = [9, 11]
+    c["xlim"] = [8.75, 11.25]
     c["usePeriodicBC"] = True
     c["densityYlim"] = [4.5, 6.5]
     c["phaseYlim"] = [-0.05, 0.05]
-    c["slowDown"] = 500
+    c["slowDown"] = 1000
 
 def li3Config(c):
     c["usePeriodicBC"] = True
@@ -282,7 +284,9 @@ def li3Config(c):
     c["tEnd"] = .005
     c["domainSize"] = 1
     c["xlim"] = [0, 1]
-    c["densityYlim"] = [0, 16]
+    c["densityYlim"] = [0, 30]
+    c["plotPhaseMod2"] = False
+    c["phaseYlim"] = [-40, 50]
     c["slowDown"] = 2000
 
 
@@ -358,7 +362,6 @@ def soliton2DConfig(c):
     c["densityYlim"] = [0, 1]
     c["gravity"] = 1
     c["fps"] = 20
-    c["dpi"] = 80
 
 def soliton2DCosmoConfig(c):
     soliton2DConfig(c)
