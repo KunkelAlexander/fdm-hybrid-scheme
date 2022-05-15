@@ -35,7 +35,7 @@ def getBaseConfig():
     c["gravity"]             = 0
     c["nThreads"]            = 4
     c["fps"] = 10
-    c["dpi"] = 300
+    c["dpi"] = 120
     c["plotDebug"] = False
     return c
 
