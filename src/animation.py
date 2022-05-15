@@ -352,18 +352,33 @@ def create2DFrame(
         dpi = 600 
 
     fig = plt.figure(figsize=figsize, dpi=dpi)
+    #grid = AxesGrid(
+    #    fig,
+    #    111,
+    #    nrows_ncols=(2, 3),
+    #    axes_pad=0.25,
+    #    cbar_mode="edge",
+    #    cbar_location="right",
+    #    cbar_pad=0.1,
+    #)
+
     grid = AxesGrid(
         fig,
-        111,
+        (0.075, 0.075, 0.85, 0.85),
         nrows_ncols=(2, 3),
-        axes_pad=0.25,
-        cbar_mode="edge",
+        axes_pad=0,
+        share_all=True,
         cbar_location="right",
-        cbar_pad=0.1,
+        cbar_mode="edge",
+        cbar_size="5%",
+        cbar_pad="0%",
     )
 
+
     for ax in grid:
-        ax.set_axis_off()
+        ax.axes.xaxis.set_visible(False)
+        ax.axes.yaxis.set_visible(False)
+        #ax.set_axis_off()
         ax.set_aspect("equal")
 
     ax1, ax2, ax3, ax4, ax5, ax6 = grid
@@ -379,29 +394,31 @@ def create2DFrame(
 
     # Plot background
     im1 = ax1.imshow(np.random.random((N, N)), cmap="inferno", vmin = ll, vmax = hl)
-    title1 = ax1.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
+    #title1 = ax1.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
     im2 = ax2.imshow(np.random.random((N, N)), cmap="inferno", vmin = ll, vmax = hl)
-    title2 = ax2.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
+    #title2 = ax2.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
     im3 = ax3.imshow(np.random.random((N, N)), cmap="gray",    vmin = 0, vmax = 1)
-    title3 = ax3.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
+    #title3 = ax3.set_title(r"$\log_{10}(|\psi|^2)$ at t = $0$")
 
     im4 = ax4.imshow(np.random.random((N, N)), cmap="inferno", vmin=pl, vmax=ph)
-    title4 = ax4.set_title(r"${\rm angle}(\psi)$ at t = $0$")
+    #title4 = ax4.set_title(r"${\rm angle}(\psi)$ at t = $0$")
     im5 = ax5.imshow(np.random.random((N, N)), cmap="inferno", vmin=pl, vmax=ph)
-    title5 = ax5.set_title(r"${\rm angle}(\psi)$ at t = $0$")
+    #title5 = ax5.set_title(r"${\rm angle}(\psi)$ at t = $0$")
     im6 = ax6.imshow(np.random.random((N, N)), cmap="gray",    vmin=0, vmax=1)
-    title6 = ax6.set_title(r"${\rm angle}(\psi)$ at t = $0$")
+    #title6 = ax6.set_title(r"${\rm angle}(\psi)$ at t = $0$")
 
     suptitle = ax6.text(.05, .9, "", fontsize=10, c="w", bbox=dict(facecolor='gray', alpha=0.5), transform=ax.transAxes)
 
     cbar1 = plt.colorbar(im1, cax=grid.cbar_axes[0], ticks = [0, 0.25, 0.5, 0.75, 1])
-    cbar1.ax.set_yticklabels(['-1', '0', '1', '2', '3'])
-    plt.colorbar(im4, cax=grid.cbar_axes[1])
+    cbar1.ax.set_yticklabels(['', '$10^{0}$', '$10^{1}$', '$10^{2}$', '$10^{4}$'])
+    cbar1.set_label(r"density $\rho$", size=12)
+    cbar2 = plt.colorbar(im4, cax=grid.cbar_axes[1])
+    cbar2.set_label(r"phase $S$", size=12)
     
-    cax = inset_axes(ax6, "4%", "210%", loc=3, bbox_to_anchor=(1.25, 0, 1, 1), 
-                    bbox_transform=ax6.transAxes, borderpad=0.0)
-    cbar2 = plt.colorbar(im6, cax=cax, ticks=[0, .25, .5, .75, 1])
-    cbar2.ax.set_yticklabels(['0%', '25%', '50%', '75%', '100%'])
+    #cax = inset_axes(ax6, "4%", "210%", loc=3, bbox_to_anchor=(1.25, 0, 1, 1), 
+    #                bbox_transform=ax6.transAxes, borderpad=0.0)
+    #cbar2 = plt.colorbar(im6, cax=cax, ticks=[0, .25, .5, .75, 1])
+    #cbar2.ax.set_yticklabels(['0%', '25%', '50%', '75%', '100%'])
 
     subregion_patches = []
 
@@ -463,9 +480,9 @@ def create2DFrame(
                 solver.binaryTree.getSubregions(subregions)
                 for N0, N, isWaveScheme in subregions:
                     if isWaveScheme:
-                        c = "red"
-                        rect1 = patches.Rectangle(np.flip(N0), N, N, linewidth=1, edgecolor=c, facecolor='none')
-                        rect2 = patches.Rectangle(np.flip(N0), N, N, linewidth=1, edgecolor=c, facecolor='none')
+                        c = "white"
+                        rect1 = patches.Rectangle(np.flip(N0), N, N, linewidth=.5, edgecolor=c, facecolor='none')
+                        rect2 = patches.Rectangle(np.flip(N0), N, N, linewidth=.5, edgecolor=c, facecolor='none')
                         pol1 = ax1.add_patch(rect1)
                         pol2 = ax4.add_patch(rect2)
                         subregion_patches.append(rect1)
@@ -529,18 +546,18 @@ def create2DFrame(
 
         suptitle.set_text(current_time)
 
-        title1.set_text(r"$\log_{10}(|\psi|^2)$ for " + label)
-        title4.set_text(r"$angle(\psi)$ for " + label)
-
-        if waveSolver is None:
-            title2.set_text(r"$\log_{10}(|\psi|^2)$ for analytical solution")
-            title5.set_text(r"$angle(\psi)$ for analytical solution")
-        else:
-            title2.set_text(r"$\log_{10}(|\psi|^2)$ for wave scheme")
-            title5.set_text(r"$angle(\psi)$ for wave scheme")
-
-        title3.set_text(r"relative density error")
-        title6.set_text(r"relative phase error")
+        #title1.set_text(r"$\log_{10}(|\psi|^2)$ for " + label)
+        #title4.set_text(r"$angle(\psi)$ for " + label)
+#
+        #if waveSolver is None:
+        #    title2.set_text(r"$\log_{10}(|\psi|^2)$ for analytical solution")
+        #    title5.set_text(r"$angle(\psi)$ for analytical solution")
+        #else:
+        #    title2.set_text(r"$\log_{10}(|\psi|^2)$ for wave scheme")
+        #    title5.set_text(r"$angle(\psi)$ for wave scheme")
+#
+        #title3.set_text(r"relative density error")
+        #title6.set_text(r"relative phase error")
 
         plt.savefig(f"plots/2d/{filename}.pdf", bbox_inches="tight")
 

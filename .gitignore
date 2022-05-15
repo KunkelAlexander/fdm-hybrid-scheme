@@ -6,3 +6,11 @@
 *.pdf
 *.png
 .ipynb_checkpoints/volumerenderer.py-jvsc-c41bcf47-72a2-4e44-abf5-f19b4c86fd32-checkpoint.ipynb
+.flake8
+.isort.cfg
+.markdownlint.yaml
+imgui.ini
+.trunk/trunk.yaml
+.vscode/settings.json
+style/style.mplstyle
+.trunk/.gitignore

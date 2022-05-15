@@ -5,11 +5,6 @@ import matplotlib.pyplot as plt
 
 import src.cosmology as cosmology
 import src.fd as fd
-import src.fd_1d as fd_1d
-import src.fd_2d as fd_2d
-import src.integration as integration
-import src.animation as animation
-
 
 
 class FluxLimiters(Enum):
@@ -28,7 +23,7 @@ class FluxLimiters(Enum):
     #Family of limiters parametrised by a,
     ALFA        = lambda r, a: np.maximum(0, np.minimum(2*r, np.minimum(a*r+1-a, 2)))
     #Third order limiter of ALFA family (SMART) for a = 0.75
-    SMART       = lambda r: np.maximum(0, np.minimum(2*r, np.minimum(.75*r+.25, 2)))
+    SMART       = lambda r: np.maximum(0, np.minimum(2*r, np.minimum(.75*r+.25, 4)))
     #CFL-dependent (s = dt/dx) limiters
     ULTRABEE    = lambda r, s: np.maximum(0, np.maximum(np.minimum(2*r/s, 1),np.minimum(r, 2/(1-s))))
     ULTRAALFA   = lambda r, s, a: np.maximum(0, np.minimum(2*r/s, np.minimum(a*(r-1) + 1, 2/(1-s))))
