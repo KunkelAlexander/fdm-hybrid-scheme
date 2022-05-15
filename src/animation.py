@@ -125,12 +125,12 @@ def create1DFrame(
 
     # Set axis ratios
     plt.xlim(xlim)
-    plt.xlabel("position $x$")
+    plt.xlabel("$x$")
 
     if advection:
         plt.ylabel(r"$u(x)$")
     else:
-        plt.ylabel(r"$|\psi|^2$")
+        plt.ylabel(r"density $\rho$")
 
     if not useAdaptiveYlim:
         plt.ylim(ylim)
@@ -156,8 +156,8 @@ def create1DFrame(
         plt.yticks()
         # Set axis ratios
         plt.xlim(xlim)
-        plt.xlabel("position $x$")
-        plt.ylabel(r"${\rm angle}(\psi)$")
+        plt.xlabel("$x$")
+        plt.ylabel(r"phase $S$")
         ax2.yaxis.tick_right()
         ax2.yaxis.set_label_position("right")
 
@@ -185,7 +185,7 @@ def create1DFrame(
         # Set axis ratios
         plt.xlim(xlim)
         plt.ylabel(r"relative error")
-        plt.xlabel("position $x$")
+        plt.xlabel("$x$")
 
         if not useAdaptiveYlim:
             plt.ylim([0, .1])
@@ -295,7 +295,7 @@ def create1DFrame(
                             pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)
                         subregion_patches.append(pol3)
 
-        time_text.set_text("Time t = %.5f" % (t))
+        time_text.set_text("time t = %.5f" % (t))
 
         if plotDebug:
             debug_information = r"$\int \mathrm{d}x|\psi|^2$" + "= %.3f, %.3f (wave/ana, phase), RMS error = .%.3e" % (

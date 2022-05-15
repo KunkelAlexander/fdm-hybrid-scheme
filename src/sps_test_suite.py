@@ -12,6 +12,7 @@ import src.hybrid_scheme as hybrid_scheme
 import src.tests as tests
 import src.config as config
 import src.animation as animation 
+import src.cosmology as cosmology 
 
 
 test = tests.standingWave
@@ -244,15 +245,15 @@ def li1Config(c):
     c["tEnd"] = .25
     c["domainSize"] = 4
     c["xlim"] = [0, 4]
-    c["densityYlim"] = [0, 25]
+    c["densityYlim"] = [0, 12]
     c["slowDown"] = 20
 
 def periodicLi1Config(c):
-    c["resolution"] = 64
-    c["tEnd"] = .1
+    c["resolution"] = 128
+    c["tEnd"] = .25
     c["domainSize"] = 4
     c["xlim"] = [0, 4]
-    c["densityYlim"] = [0, 25]
+    c["densityYlim"] = [0, 12]
     c["slowDown"] = 20
 
 def hubbleExpansionConfig(c):
@@ -362,6 +363,9 @@ def soliton2DConfig(c):
 def soliton2DCosmoConfig(c):
     soliton2DConfig(c)
     c["useCosmology"] = True
+    c["t0"] = cosmology.getTime(0.01)
+    c["t"]  = cosmology.getDashedTime(2)
+    c["resolution"] = 64
 
 def soliton2DTestConfig(c):
     c["dimension"] = 2
@@ -518,7 +522,7 @@ def run(title, scheme, c, test, label, potential = None, createAnimation = False
         animation.drawFrame(solver = solver, label = title, analyticalSolution = test, filename = filename, waveSolver = waveSolver)
         plt.show()
     else:
-        animation.createAnimation(solver = solver, label = title, analyticalSolution = test, filename = filename, waveSolver = waveSolver)
+        animation.createAnimation(solver = solver, analyticalSolution = test, filename = filename, waveSolver = waveSolver)
 
 def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolver = False):
     test, testConfig, potential = test_list[test_name]

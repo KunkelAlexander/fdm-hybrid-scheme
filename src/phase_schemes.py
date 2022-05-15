@@ -325,7 +325,7 @@ class HOUpwindScheme(PhaseScheme):
         return np.array([ddensity, dphase])
 
     def getName(self):
-        return "muscl-upwind scheme"
+        return "phase scheme"
 
 
 class LaxWendroffUpwindScheme(PhaseScheme):
