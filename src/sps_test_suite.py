@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt 
 
-from IPython.display import display, Markdown, Latex
+from IPython.display import display, Markdown
 
 import src.wave_schemes as wave_schemes
 import src.phase_schemes as phase_schemes
@@ -35,6 +35,7 @@ def getBaseConfig():
     c["nThreads"]            = 4
     c["fps"] = 10
     c["dpi"] = 80
+    c["plotDebug"] = False
     return c
 
 
@@ -348,14 +349,15 @@ def soliton2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
     c["domainSize"] = 25
-    c["resolution"] = 64#256
+    c["resolution"] = 256
     c["tEnd"] = 2
     c["slowDown"] = 10
     c["plotPhaseMod2"] = False
     c["phaseYlim"] = [-50, 50]
     c["densityYlim"] = [0, 1]
     c["gravity"] = 1
-    c["fps"] = 1
+    c["fps"] = 20
+    c["dpi"] = 80
 
 def soliton2DCosmoConfig(c):
     soliton2DConfig(c)

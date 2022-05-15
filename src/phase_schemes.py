@@ -192,7 +192,7 @@ class UpwindScheme(PhaseScheme):
         return "upwind scheme"
 
 #Get high-order upwind drift by dt
-def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0, limiter = schemes.FluxLimiters.SMART, limitHJ = True):
+def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0, limiter = schemes.FluxLimiters.VANLEER, limitHJ = True):
     ddensity = np.zeros(density.shape)
     dphase   = np.zeros(phase.shape)
     vmax = 0
