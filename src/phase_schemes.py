@@ -72,7 +72,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
         t2 = self.C_velocity     * self.dx/(2 * self.dimension*(self.vmax + 1e-8)*self.eta)
         t3 = self.C_acceleration * (self.dx/(self.amax + 1e-8))**0.5
         if self.G > 0:
-            t4 = self.C_potential    * self.hbar/np.max(np.abs(self.potential))
+            t4 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
         else:
             t4 = 1e4
         
@@ -155,9 +155,7 @@ class UpwindScheme(PhaseScheme):
                 #Compute Osher-Sethian flux for phase
                 dphase += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
 
-        dfields = -self.eta * np.array([ddensity, dphase])
-
-        return dfields * dt
+        return -dt * self.eta * np.array([ddensity, dphase])
 
 
     def getName(self):

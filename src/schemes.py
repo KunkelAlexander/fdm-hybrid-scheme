@@ -198,7 +198,7 @@ class Scheme:
         un = self.kick1(self.fields, dt)
 
         if self.outputTimestep:
-            print(f"t = {self.t:.4f} dt = {dt:.4f} a = {self.getScaleFactor():.4f} ")
+            print(f"t = {self.t:.7f} dt = {dt:.7f} a = {self.getScaleFactor():.7f} ")
 
         if self.timeOrder == 1:
             un = un + 1 / 1 * self.getUpdatedFields(dt, un)

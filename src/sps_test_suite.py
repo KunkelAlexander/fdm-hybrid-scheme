@@ -29,15 +29,15 @@ def getBaseConfig():
     c["debug"]               = False
     c["slowDown"]            = 1
     c["tEnd"]                = 1
-    c["outputTimestep"]      = True
+    c["outputTimestep"]      = False
     c["useAdaptiveTimestep"] = True
     c["usePeriodicBC"]       = False
     c["gravity"]             = 0
     c["nThreads"]            = 4
     c["fps"] = 10
-    c["dpi"] = 120
+    c["dpi"] = 80
     c["plotDebug"] = False
-    c["m"] = 1
+    c["m"] = 2
     c["hbar"] = 1
     return c
 
@@ -84,6 +84,7 @@ def hoUpwindConfig(c):
     c["stencilOrder"] = 2
     c["timeOrder"] = 4
     c["C_velocity"] = 0.25
+    c["C_parabolic"] = 0.1
 
 def hoUpwindWithFrictionConfig(c):
     c["stencilOrder"] = 2
@@ -180,8 +181,8 @@ def perturbationWaveConfig(c):
     c["domainSize"] = 1
     N = 1
     k = 2*np.pi / (N * c["domainSize"])
-    eta = 1
-    omega = 0.5/eta * k**2
+    eta = c["hbar"]/c["m"]
+    omega = 0.5 * eta * k**2
     tEnd = 2*np.pi / omega
     print("tEnd", tEnd)
     c["tEnd"] = tEnd
@@ -190,7 +191,7 @@ def perturbationWaveConfig(c):
     c["xlim"] = [0, 1]
     c["densityYlim"] = [0.98, 1.02]
     c["phaseYlim"] = [-0.01, 0.01]
-    c["slowDown"] = 5/c["tEnd"] 
+    c["slowDown"] = 10/c["tEnd"] 
 
 def stabilityTestConfig(c):
     c["usePeriodicBC"] = True
@@ -254,7 +255,7 @@ def li1Config(c):
 
 def periodicLi1Config(c):
     c["resolution"] = 128
-    c["tEnd"] = 0.01#.25
+    c["tEnd"] = .05
     c["domainSize"] = 4
     c["xlim"] = [0, 4]
     c["densityYlim"] = [0, 12]
@@ -359,8 +360,8 @@ def soliton2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
     c["domainSize"] = 25
-    c["resolution"] = 256
-    c["tEnd"] = 2
+    c["resolution"] = 128
+    c["tEnd"] = 3
     c["slowDown"] = 10
     c["plotPhaseMod2"] = False
     c["phaseYlim"] = [-50, 50]

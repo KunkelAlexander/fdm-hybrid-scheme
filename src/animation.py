@@ -442,10 +442,10 @@ def create2DFrame(
 
     def draw(i):
         # Phase scheme
-        density = solver.getDensity()
-        phase = solver.getPhase()
+        density = solver.getDensity().astype(np.float64)
+        phase = solver.getPhase().astype(np.float64)
         if not advection:
-            potential = solver.getPotential()
+            potential = solver.getPotential().astype(np.float64)
         xx, yy = solver.getGrid()
         t = solver.getTime()
         a = solver.getScaleFactor()
@@ -454,16 +454,16 @@ def create2DFrame(
         if waveSolver is None:
             if advection:
                 psi_ref, phase_ref = analyticalSolution(xx, yy, dx, solver.t)
-                density_ref = psi_ref
+                density_ref = psi_ref.astype(np.float64)
 
             else:
                 psi_ref = analyticalSolution(xx, yy, dx, solver.t, solver.m, solver.hbar)
-                density_ref = np.abs(psi_ref) ** 2
-                phase_ref = np.angle(psi_ref)
+                density_ref = (np.abs(psi_ref) ** 2).astype(np.float64)
+                phase_ref = np.angle(psi_ref).astype(np.float64)
         else:
             psi_ref = waveSolver.getPsi()
-            density_ref = np.abs(psi_ref) ** 2
-            phase_ref = np.angle(psi_ref)
+            density_ref = (np.abs(psi_ref) ** 2).astype(np.float64)
+            phase_ref = np.angle(psi_ref).astype(np.float64)
 
         rms_error = 0
 
