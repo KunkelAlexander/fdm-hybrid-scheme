@@ -54,7 +54,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
         psi = self.generateIC(*self.grid, self.dx, self.t)
         fields[0][self.boundary] = (np.abs(psi)**2)[self.boundary]
         fields[1][self.boundary] = np.angle(psi)[self.boundary]
-        fields[1] = fd.make_continuous(fields[1])
+        #fields[1] = fd.make_boundary_continuous(fields[1])
 
     def getAdaptiveTimeStep(self):
         # Combination of 
@@ -174,12 +174,12 @@ class UpwindScheme(PhaseScheme):
 
 
             ### COMPUTE QUANTUM PRESSURE ###
-            if self.turnOffDiffusion == False:
+            if self.turnOffDiffusion is False:
                 dphase -= self.eta**2 * 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
 
             ### COMPUTE OSHER-SETHIAN-FLUX ###
 
-            if self.turnOffConvection == False:
+            if self.turnOffConvection is False:
                 #Compute Osher-Sethian flux for phase
                 dphase += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
 

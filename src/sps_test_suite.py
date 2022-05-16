@@ -264,7 +264,8 @@ def hubbleExpansionConfig(c):
     c["densityYlim"] = [0, 25]
     c["slowDown"] = 50
     c["plotPhaseMod2"] = False 
-    c["phaseYlim"] = [-40, 10]
+    c["phaseYlim"] = [-40, 20]
+    c["usePeriodicBC"] = False
 
 
 def li2Config(c):
