@@ -198,7 +198,7 @@ class Scheme:
         un = self.kick1(self.fields, dt)
 
         if self.outputTimestep:
-            print(f"t = {self.t} dt = {dt} ")
+            print(f"t = {self.t:.4f} dt = {dt:.4f} a = {self.getScaleFactor():.4f} ")
 
         if self.timeOrder == 1:
             un = un + 1 / 1 * self.getUpdatedFields(dt, un)
@@ -265,14 +265,23 @@ class SchroedingerScheme(Scheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
 
-        self.psi = self.generateIC(*self.grid, self.dx, self.t)
+        self.hbar = config["hbar"]
+        self.m    = config["m"]
+        self.eta = self.hbar / self.m
+        print(f"hbar/m is {self.eta}")
+
+        self.psi = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
         self.potential = np.zeros(self.psi.shape, dtype=np.float128)
-        self.eta = 1 #hbar / m
 
         # Set up global parameters and constants
         self.G            = config["gravity"]
         self.useCosmology = config["useCosmology"]
         self.useHybrid = False
+
+
+        self.C_potential       = config["C_potential"]
+        self.C_parabolic       = config["C_parabolic"]
+
 
         if (self.G == 0) and self.useCosmology:
             raise ValueError(
@@ -284,7 +293,6 @@ class SchroedingerScheme(Scheme):
                 "Gravity only supported for periodic boundary conditions."
             )
 
-        print("Setting up fourier grid")
         # Set up Fourier Space Variables for computing gravitational potential
         klin = 2.0 * np.pi / self.boxWidth * np.arange(-self.totalN / 2, self.totalN / 2)
 
@@ -321,7 +329,7 @@ class SchroedingerScheme(Scheme):
 
     def computePotential(self, density):
         if np.isnan(density).any():
-            print("Density array in compute potential contained nan")
+            print("Density array in computePotential contained nan")
             self.t = self.tEnd 
             return 
 
@@ -333,7 +341,7 @@ class SchroedingerScheme(Scheme):
             )
 
         if self.externalPotential is not None:
-            V += self.externalPotential(*self.grid)
+            V += 1/self.hbar * self.externalPotential(*self.grid, self.m)
 
         self.potential = V
 

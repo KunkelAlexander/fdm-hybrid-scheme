@@ -197,7 +197,7 @@ def getDerivative(f, dx, stencil, coeff, axis, derivative_order=1, debug=False):
 
 
 
-def getHOSqrtQuantumPressure(rho, dx, eta, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
+def getHOSqrtQuantumPressure(rho, dx, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
     rho[rho<0] = 1e-8
     logrho = np.log(rho)
     if 0:#np.isnan(logrho).any():
@@ -218,7 +218,7 @@ def getHOSqrtQuantumPressure(rho, dx, eta, c1_stencil, c1_coeff, c2_stencil, c2_
 
         result += -1 / 4 * f_ddi - 1 / 8 * f_di ** 2
 
-    return result * eta ** 2
+    return result
 
 
 def getC4QuantumPressure(rho, dx, c1_stencil, c1_coeff):
@@ -353,8 +353,7 @@ def getCenteredLaplacian(f, dx, axis):
     f_ddx = (np.roll(f, ROLL_R, axis=axis) - 2 * f + np.roll(f, ROLL_L, axis=axis) )/(dx**2)
     return f_ddx
 
-# eta = hbar / m
-def getQuantumPressure(rho, dx, eta):
+def getQuantumPressure(rho, dx):
     logrho = np.log(rho)
     result = np.zeros(rho.shape)
     for i in range(rho.ndim):
@@ -362,7 +361,7 @@ def getQuantumPressure(rho, dx, eta):
         f_ddi = getCenteredLaplacian(logrho, dx, axis=i)
         result += -1 / 4 * f_ddi - 1 / 8 * f_di ** 2
 
-    return result * eta ** 2
+    return result
 
 
 #Upwind fluxes for updating density
@@ -377,12 +376,12 @@ def getUpwindFlux(up, um, rho, dx, axis):
 
 
 #Create stencil matrices for laplace operator of kinetic term in 2nd order Cranck Nicolson scheme
-def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False):
+def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False, eta = 1):
   # Set up tridiagonal coefficients
   A = np.empty((3, nx), dtype=complex)
-  A[1, :] =  1 + 1j*dt/dx**2 * 1/2
-  A[0, :] = -1j*dt/(2*dx**2) * 1/2
-  A[2, :] = -1j*dt/(2*dx**2) * 1/2
+  A[1, :] =  1 + eta * 1j*dt/dx**2 * 1/2
+  A[0, :] = eta * -1j*dt/(2*dx**2) * 1/2
+  A[2, :] = eta * -1j*dt/(2*dx**2) * 1/2
 
   #Dirichlet boundary conditions
   if not periodicBC:
@@ -394,9 +393,9 @@ def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False):
   bdiag = np.empty(nx, dtype=complex)
   bsup  = np.empty(nx, dtype=complex)
   bsub  = np.empty(nx, dtype=complex)
-  bdiag.fill(1 - 1j*dt/dx**2 * 1/2)
-  bsup.fill(1j * dt/(2*dx**2) * 1/2)
-  bsub.fill(1j * dt/(2*dx**2) * 1/2)
+  bdiag.fill(1 - eta * 1j*dt/dx**2 * 1/2)
+  bsup.fill(eta * 1j * dt/(2*dx**2) * 1/2)
+  bsub.fill(eta * 1j * dt/(2*dx**2) * 1/2)
 
   A = scipy.sparse.spdiags([A[1,:], A[0,:], A[2,:]], [0, 1, -1], nx, nx, format = 'csr')
   b = scipy.sparse.spdiags([bdiag, bsup, bsub], [0, 1, -1], nx, nx, format = 'csr')
@@ -404,10 +403,10 @@ def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False):
   if periodicBC:
     Ad = A.todense()
     bd = b.todense()
-    Ad[0, -1] = -1j*dt/(2*dx**2) * 1/2
-    Ad[-1, 0] = -1j*dt/(2*dx**2) * 1/2
-    bd[0, -1] =  1j*dt/(2*dx**2) * 1/2
-    bd[-1, 0] =  1j*dt/(2*dx**2) * 1/2
+    Ad[0, -1] = eta * -1j*dt/(2*dx**2) * 1/2
+    Ad[-1, 0] = eta * -1j*dt/(2*dx**2) * 1/2
+    bd[0, -1] = eta *  1j*dt/(2*dx**2) * 1/2
+    bd[-1, 0] = eta *  1j*dt/(2*dx**2) * 1/2
     A = scipy.sparse.csr_matrix(Ad)
     b = scipy.sparse.csr_matrix(bd)
 

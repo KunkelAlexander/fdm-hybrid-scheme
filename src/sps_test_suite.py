@@ -29,7 +29,7 @@ def getBaseConfig():
     c["debug"]               = False
     c["slowDown"]            = 1
     c["tEnd"]                = 1
-    c["outputTimestep"]      = False
+    c["outputTimestep"]      = True
     c["useAdaptiveTimestep"] = True
     c["usePeriodicBC"]       = False
     c["gravity"]             = 0
@@ -37,16 +37,20 @@ def getBaseConfig():
     c["fps"] = 10
     c["dpi"] = 120
     c["plotDebug"] = False
+    c["m"] = 1
+    c["hbar"] = 1
     return c
 
 
 def ftcsConfig(c):
     c["stencilOrder"] = 2
     c["timeOrder"]    = 2
+    c["C_parabolic"]  = 1/6
 
 def hoftcsConfig(c):
     c["stencilOrder"] = 4
     c["timeOrder"]    = 2
+    c["C_parabolic"]  = 1/6
 
 def cnConfig(c):
     c["stencilOrder"] = 1
@@ -250,7 +254,7 @@ def li1Config(c):
 
 def periodicLi1Config(c):
     c["resolution"] = 128
-    c["tEnd"] = .25
+    c["tEnd"] = 0.01#.25
     c["domainSize"] = 4
     c["xlim"] = [0, 4]
     c["densityYlim"] = [0, 12]
@@ -367,8 +371,8 @@ def soliton2DConfig(c):
 def soliton2DCosmoConfig(c):
     soliton2DConfig(c)
     c["useCosmology"] = True
-    c["t0"] = cosmology.getTime(0.01)
-    c["t"]  = cosmology.getDashedTime(2)
+    c["t0"] = cosmology.getTime(a = 0.1)
+    c["t"]  = 1
     c["resolution"] = 64
 
 def soliton2DTestConfig(c):
@@ -440,30 +444,30 @@ def accuracyTest3DConfig(c):
 
 test_list = {
     "standing wave": [tests.standingWave, standingWaveConfig, None],
-    "harmonic oscillator convergence": [tests.generate1DUniform, oscillatorConvergenceConfig, lambda x: tests.oscillatorPotential1D(x, x0 = 0.5)],
-    "harmonic oscillator eigenstate": [tests.oscillatorEigenstate1D, oscillatorEigenstateConfig, lambda x: tests.oscillatorPotential1D(x, x0 = 3)],
-    "harmonic oscillator coherent state": [tests.oscillatorCoherentState1D, oscillatorCoherentStateConfig, lambda x: tests.oscillatorPotential1D(x, x0 = 7)],
+    "harmonic oscillator convergence": [tests.generate1DUniform, oscillatorConvergenceConfig, lambda x, m: tests.oscillatorPotential1D(x, m, x0 = 0.5)],
+    "harmonic oscillator eigenstate": [tests.oscillatorEigenstate1D, oscillatorEigenstateConfig, lambda x, m: tests.oscillatorPotential1D(x, m, x0 = 3)],
+    "harmonic oscillator coherent state": [tests.oscillatorCoherentState1D, oscillatorCoherentStateConfig, lambda x, m: tests.oscillatorPotential1D(x, m, x0 = 7)],
     "infinite well": [tests.infiniteWell1D, infiniteWellConfig, None],
-    "gaussian wave packet": [lambda x, dx, t: tests.li1(x, dx, t, x0=2), li1Config, None],
-    "periodic gaussian wave packet": [lambda x, dx, t: tests.periodicLi1(x, dx, t, x0=2, L = 4), periodicLi1Config, None],
-    "hubble expansion": [lambda x, dx, t: tests.li1(x, dx, t, x0=2, eps = 1e-4), li1Config, None],
-    "wide hubble expansion": [lambda x, dx, t: tests.li1(x, dx, t, x0=5, eps = 1e-4), hubbleExpansionConfig, None],
-    "quasi-shock": [lambda x, dx, t: tests.li2(x, dx, t, x0 = 10), li2Config, None],
+    "gaussian wave packet": [lambda x, dx, t, m, hbar: tests.li1(x, dx, t, m, hbar, x0=2), li1Config, None],
+    "periodic gaussian wave packet": [lambda x, dx, t, m, hbar: tests.periodicLi1(x, dx, t, m, hbar, x0=2, L = 4), periodicLi1Config, None],
+    "hubble expansion": [lambda x, dx, t, m, hbar: tests.li1(x, dx, t, m, hbar, x0=2, eps = 1e-4), li1Config, None],
+    "wide hubble expansion": [lambda x, dx, t, m, hbar: tests.li1(x, dx, t, m, hbar, x0=5, eps = 1e-4), hubbleExpansionConfig, None],
+    "quasi-shock": [lambda x, dx, t, m, hbar: tests.li2(x, dx, t, m, hbar, x0 = 10), li2Config, None],
     "wave packet collision": [tests.li3, li3Config, None],
     "travelling wave packet": [tests.travellingWavePacket, travellingWavePacketConfig, None],
     "perturbation wave": [tests.cosmological1D, perturbationWaveConfig, None],
-    "accuracy test 1D": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=1, N = 1), accuracyTest1DConfig, None],
-    "soliton": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=10, N=10), solitonConfig, None],
-    "expanding_soliton": [lambda xx, dx, t: tests.cosmological1D(xx, dx, t, eps=5e-3, Lx=10, N=10), expandingSolitonConfig, None],
-    "perturbation wave 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
-    "soliton 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 25, Ly = 25, N = 10, eps= 5e-3), soliton2DConfig, None],
-    "soliton 2D test": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DTestConfig, None],
-    "soliton 2D cosmo": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DCosmoConfig, None],
-    "accuracy test 2D": [lambda x, y, dx, t: tests.cosmological2D(x, y, dx, t, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],
-    "stability test 2D": [lambda xx, yy, dx, t: tests.cosmological2D(xx, yy, dx, t, eps=3e-5, Lx=25, Ly=25, N = 10), stabilityTest2DConfig, None],
-    "perturbation wave 3D": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), perturbationWave3DConfig, None],
-    "soliton 3D test": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 8, Ly = 8, Lz = 8, N = 3, eps=5e-3), soliton3DTestConfig, None],
-    "accuracy test 3D": [lambda x, y, z, dx, t: tests.cosmological3D(x, y, z, dx, t, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
+    "accuracy test 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=1, N = 1), accuracyTest1DConfig, None],
+    "soliton": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), solitonConfig, None],
+    "expanding_soliton": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), expandingSolitonConfig, None],
+    "perturbation wave 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
+    "soliton 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 10, eps= 5e-3), soliton2DConfig, None],
+    "soliton 2D test": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DTestConfig, None],
+    "soliton 2D cosmo": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DCosmoConfig, None],
+    "accuracy test 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],
+    "stability test 2D": [lambda xx, yy, dx, t, m, hbar: tests.cosmological2D(xx, yy, dx, t, m, hbar, eps=3e-5, Lx=25, Ly=25, N = 10), stabilityTest2DConfig, None],
+    "perturbation wave 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), perturbationWave3DConfig, None],
+    "soliton 3D test": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 8, Ly = 8, Lz = 8, N = 3, eps=5e-3), soliton3DTestConfig, None],
+    "accuracy test 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
 }
 
 def hoUpwindMCConfig(c):
@@ -543,7 +547,7 @@ def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolve
 
             display(Markdown('## ' + key))
 
-            run(title, scheme, c, test, key, potential, createAnimation, useWaveSolver)
+            run(key, scheme, c, test, key, potential, createAnimation, useWaveSolver)
     else:
         scheme, schemeConfig = scheme_list[scheme_name]
 

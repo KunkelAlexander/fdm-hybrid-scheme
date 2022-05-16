@@ -41,6 +41,8 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "fluxLimiter": "SMART",
 
         # Gravity & cosmology
+        "hbar" : 1,
+        "m" : 1,
         "gravity": 0,  # Turn on self-gravity
         "useCosmology": False,
 
@@ -92,10 +94,12 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "turnOffSource"         : False,
         "friction"              : 0.0,
         "limitHJ"               : True,
-        #CFL conditions for phase schemes
+
+        #CFL conditions
         "C_parabolic"           : 1/6,
-        "C_velocity"            : 0.25,
+        "C_velocity"            : 0.5,
         "C_acceleration"        : 0.4,
+        "C_potential"           : 2 * 3.14159 * 0.3,
 
 
         #Fluid scheme options

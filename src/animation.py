@@ -231,7 +231,7 @@ def create1DFrame(
                 psi_ref, phase_ref = analyticalSolution(xx, dx, t)
                 density_ref = psi_ref
             else:
-                psi_ref = analyticalSolution(xx, dx, t)
+                psi_ref = analyticalSolution(xx, dx, t, solver.m, solver.hbar)
                 density_ref = np.abs(psi_ref) ** 2
         else:
             psi_ref = waveSolver.getPsi()
@@ -457,7 +457,7 @@ def create2DFrame(
                 density_ref = psi_ref
 
             else:
-                psi_ref = analyticalSolution(xx, yy, dx, solver.t)
+                psi_ref = analyticalSolution(xx, yy, dx, solver.t, solver.m, solver.hbar)
                 density_ref = np.abs(psi_ref) ** 2
                 phase_ref = np.angle(psi_ref)
         else:
@@ -694,7 +694,7 @@ def create3DFrame(
                 density_ref = psi_ref
 
             else:
-                psi_ref = analyticalSolution(xx, yy, zz, dx, solver.t)
+                psi_ref = analyticalSolution(xx, yy, zz, dx, solver.t, solver.m, solver.hbar)
                 density_ref = np.abs(psi_ref) ** 2
                 phase_ref = np.angle(psi_ref)
         else:
@@ -858,11 +858,11 @@ def drawFrame(
     advection=False,
     projectionAxis=0,
 ):
-    if analyticalSolution == None:
+    if analyticalSolution is None:
         analyticalSolution = solver.generateIC
-    if label == None:
+    if label is None:
         label = solver.getName()
-    if filename == None:
+    if filename is None:
         filename = solver.getName().replace(" ", "_")
 
     config = solver.config
@@ -882,11 +882,11 @@ def createAnimation(
     waveSolver=None,
     advection=False,
 ):
-    if analyticalSolution == None:
+    if analyticalSolution is None:
         analyticalSolution = solver.generateIC
-    if label == None:
+    if label is None:
         label = solver.getName()
-    if filename == None:
+    if filename is None:
         filename = solver.getName().replace(" ", "_")
 
     config = solver.config

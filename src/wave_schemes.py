@@ -13,30 +13,23 @@ import src.schemes as schemes
 class WaveScheme(schemes.SchroedingerScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-        self.cfl = .2
-        self.friction = config["friction"]
-        if self.friction > 0:
-            print("Using wave scheme with non-zero friction. This results in imaginary time steps.")
 
     def step(self, dt):
 
         if not self.usePeriodicBC:
             self.setBoundaryConditions(self.psi)
 
-        if self.friction > 0:
-            dt *= 1j
-
         # (1/2) kick
-        self.psi = np.exp(-1.0j * dt / 2.0 * self.potential) * self.psi
+        self.psi = np.exp(-1.0j * dt / 2 * self.potential) * self.psi
 
         # drift
         self.drift(dt)
 
         #update potential
-        self.potential = self.computePotential(np.abs(self.psi) ** 2)
+        self.potential = self.computePotential(np.abs(self.psi) ** 2 * self.m)
 
         #(1/2) kick
-        self.psi = np.exp(-1.0j * dt / 2.0 * self.potential) * self.psi
+        self.psi = np.exp(-1.0j * dt / 2 * self.potential) * self.psi
 
 
         self.t += dt * self.getScaleFactor() ** 2
@@ -51,10 +44,16 @@ class WaveScheme(schemes.SchroedingerScheme):
         return fd.make_continuous(np.angle(self.psi))
         
     def getAdaptiveTimeStep(self):
-        return 1/6*self.eta*self.dx*self.dx
+        t1 = self.C_parabolic * self.dx**2/self.eta
+        if self.G > 0:
+            t2 = self.C_potential    * self.hbar/np.max(np.abs(self.potential))
+        else:
+            t2 = 1e4
+        
+        return np.min([t1, t2])
 
     def setBoundaryConditions(self, psi):
-        f = self.generateIC(*self.grid, self.dx, self.t)
+        f = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
         psi[self.boundary] = f[self.boundary]
 
 class SpectralScheme(WaveScheme):
@@ -64,7 +63,7 @@ class SpectralScheme(WaveScheme):
     def drift(self, dt):
         # drift
         psihat = scipy.fft.fftn(self.psi, workers = self.workers)
-        psihat = np.exp(dt * (-1.0j * self.kSq / 2.0)) * psihat
+        psihat = np.exp(dt * (-1.0j * self.eta * self.kSq / 2.0)) * psihat
         self.psi = scipy.fft.ifftn(psihat, workers = self.workers)
 
 
@@ -74,15 +73,11 @@ class SpectralScheme(WaveScheme):
 class FTCSScheme(WaveScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-        self.C_parabolic       = config["C_parabolic"]
-        self.cfl = self.C_parabolic
         
     def drift(self, dt):
         dx, u0 = self.dx, self.psi
-        u1 = u0 + fd.solvePeriodicFTCSDiffusion(u0, dx = dx, dt = dt, coeff = self.c2_coeff, stencil = self.c2_stencil)
-        self.psi = 0.5 * u0 + 0.5 * u1 + fd.solvePeriodicFTCSDiffusion(u1, dx = dx, dt = dt * 0.5, coeff = self.c2_coeff, stencil = self.c2_stencil)
-        #u1 = u0 + fd.solvePeriodicFTCSDiffusion(u0, dx = dx, dt = 0.5 * dt, coeff = self.c2_coeff, stencil = self.c2_stencil)
-        #self.psi =u0 + fd.solvePeriodicFTCSDiffusion(u1, dx = dx, dt = dt * 1.5, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        u1 = u0 + self.eta * fd.solvePeriodicFTCSDiffusion(u0, dx = dx, dt = dt, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        self.psi = 0.5 * u0 + 0.5 * u1 + self.eta * fd.solvePeriodicFTCSDiffusion(u1, dx = dx, dt = dt * 0.5, coeff = self.c2_coeff, stencil = self.c2_stencil)
 
     def getName(self):
         return "ftcs scheme"
@@ -98,14 +93,14 @@ class CNScheme(WaveScheme):
     def drift(self, dt):
         if self.dimension == 1:
             self.kin_A, self.kin_b = fd.createKineticLaplacian(
-                self.N_ghost, dt, self.dx, periodicBC=self.usePeriodicBC
+                self.N_ghost, dt, self.dx, periodicBC=self.usePeriodicBC, eta = self.eta
             )
         elif self.dimension == 2:
             self.kin_A_row, self.kin_b_row = fd.createKineticLaplacian(
-                self.N_ghost, dt, self.dx, periodicBC=self.usePeriodicBC
+                self.N_ghost, dt, self.dx, periodicBC=self.usePeriodicBC, eta = self.eta
             )
             self.kin_A_col, self.kin_b_col = fd.createKineticLaplacian(
-                self.N_ghost, dt, self.dx, periodicBC=self.usePeriodicBC
+                self.N_ghost, dt, self.dx, periodicBC=self.usePeriodicBC, eta = self.eta
             )
 
         # drift
@@ -121,9 +116,9 @@ class CNScheme(WaveScheme):
             if self.dimension == 1:
                 self.psi = fd_1d.solveDirichletCNDiffusion(self.psi, self.psi[0], self.psi[-1], self.kin_A, self.kin_b)
             elif self.dimension == 2:
-                #self.psi = fd_2d.solveDirichletCNDiffusion(
-                #    self.psi, self.kin_A_row, self.kin_b_row, self.kin_A_col, self.kin_b_col
-                #)
+                self.psi = fd_2d.solveDirichletCNDiffusion(
+                    self.psi, self.kin_A_row, self.kin_b_row, self.kin_A_col, self.kin_b_col
+                )
                 raise ValueError()
 
     def getName(self):
