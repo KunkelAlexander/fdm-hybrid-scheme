@@ -1,4 +1,5 @@
 import numpy as np 
+import src.fd as fd
 
 ROLL_R = -1
 ROLL_L = 1
@@ -74,7 +75,6 @@ def getCurvature(f, dx):
     for i in range(f.ndim):
         res += fd.getCenteredLaplacian(f, dx, axis=i)
     return res/f.ndim
-import fd
 
 def getPecletSr(density, dx, eta):
     vr = np.zeros(density.shape)

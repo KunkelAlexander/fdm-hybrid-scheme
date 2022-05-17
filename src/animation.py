@@ -68,6 +68,7 @@ plt.rcParams['figure.titlesize'] = 12
 plt.rcParams["font.family"] = "DejaVu Sans"
 
 
+
 def create1DFrame(
     solver,
     label,
@@ -215,7 +216,13 @@ def create1DFrame(
 
         return im1, im2, im3, im4, im5, im6, time_text, norm_text
 
+
+    global subregion_patches
+    subregion_patches = []
+
     def draw(i):
+        global subregion_patches
+
         density = solver.getDensity()
         phase = solver.getPhase()
         if not advection:
@@ -248,7 +255,9 @@ def create1DFrame(
                 im2.set_data(xx, phase)
                 phase_ref = fd.make_1d_continuous(np.angle(psi_ref))
 
-            im4.set_data(xx, phase_ref)
+            contphase = fd.make_1d_continuous(phase.copy())
+
+            im4.set_data(xx, contphase - contphase[0])
 
         if plotDebug:
             rms_error = 0
@@ -270,7 +279,11 @@ def create1DFrame(
                     (phase_ref + 1e-8 * (phase_ref == 0))
                 im6.set_data(xx, phase_relerr)
 
+        for patch in subregion_patches:
+            patch.remove()
+
         subregion_patches = []
+    
 
         if hasattr(solver, "useHybrid"):
             if solver.useHybrid:
@@ -949,33 +962,3 @@ def loadRun(filename):
     config = dict(data["config"])
     config["t0"] = float(t)
     return config, psi, density, phase
-
-
-def hinton(matrix, max_weight=None, ax=None):
-    """Draw Hinton diagram for visualizing a weight matrix."""
-    ax = ax if ax is not None else plt.gca()
-
-    if not max_weight:
-        max_weight = 2 ** np.ceil(np.log2(np.abs(matrix).max()))
-
-    ax.patch.set_facecolor('gray')
-    ax.set_aspect('equal', 'box')
-    ax.xaxis.set_major_locator(plt.NullLocator())
-    ax.yaxis.set_major_locator(plt.NullLocator())
-
-    for (x, y), w in np.ndenumerate(matrix):
-        color = 'white' if w > 0 else 'black'
-        size = np.sqrt(abs(w) / max_weight)
-        rect = plt.Rectangle([x - size / 2, y - size / 2], size, size,
-                             facecolor=color, edgecolor=color)
-        ax.add_patch(rect)
-
-    ax.autoscale_view()
-    ax.invert_yaxis()
-
-
-# if __name__ == '__main__':
-#    # Fixing random state for reproducibility
-#    np.random.seed(19680801)
-#
-#    hinton(np.random.rand(20, 20) - 0.5)

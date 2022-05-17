@@ -98,7 +98,7 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
 
         #CFL conditions
         "C_parabolic"           : 1/6,
-        "C_velocity"            : 0.5,
+        "C_velocity"            : 1,
         "C_acceleration"        : 0.4,
         "C_potential"           : 2 * 3.14159 * 0.3,
 

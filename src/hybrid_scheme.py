@@ -478,6 +478,8 @@ class HybridScheme(schemes.SchroedingerScheme):
         # kick by dt/2
         self.phase -= dt/2 * self.potential
 
+        self.phase = fd.make_continuous(self.phase)
+
         self.t += dt * self.getScaleFactor()**2
 
     def getTimeStep(self):
@@ -490,26 +492,15 @@ class HybridScheme(schemes.SchroedingerScheme):
         #t2 = .5 * 0.5 * self.dx/(self.dimension*(self.vmax + 1e-8))
         #t3 = .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
 
-        self.vmax = 0
-        self.amax = 0
-
-        for i in range(self.dimension):
-            pc  = self.fields[1]
-            pp  = np.roll(pc, fd.ROLL_R, axis = i)
-            pm  = np.roll(pc, fd.ROLL_L, axis = i)
-
-            self.vmax = np.maximum(np.max(np.abs((pp - pm)/(2*self.dx))), self.vmax)
-            self.amax = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
 
         t1 = 0.125    * self.dx**2/self.eta
         t2 = 1.0      * self.dx/(2 * self.dimension*(self.vmax + 1e-8)*self.eta)
-        t3 = 0.4      * (self.dx/(self.amax + 1e-8))**0.5
         if self.G > 0:
-            t4 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
+            t3 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
         else:
-            t4 = 1e4
+            t3 = 1e4
         
-        return np.min([t1, t2, t3, t4])
+        return np.min([t1, t2, t3])
         
         
     def getDensity(self):

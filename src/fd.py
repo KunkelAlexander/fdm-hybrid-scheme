@@ -249,8 +249,8 @@ def getC4QuantumPressure(rho, dx, c1_stencil, c1_coeff):
     return result
 
 
-def computePotential(rho, G, kSq, workers = None):
-  Vhat = -scipy.fft.fftn(4.0*np.pi*G*(rho - 1.), workers=workers) / ( kSq  + (kSq==0))
+def computePotential(rho, m, G, kSq, workers = None):
+  Vhat = -scipy.fft.fftn(4.0*np.pi*G*m*(rho - 1.), workers=workers) / ( kSq  + (kSq==0))
   V = np.real(scipy.fft.ifftn(Vhat, workers=workers))
   return V
 

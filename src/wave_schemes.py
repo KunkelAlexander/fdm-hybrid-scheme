@@ -46,7 +46,7 @@ class WaveScheme(schemes.SchroedingerScheme):
     def getAdaptiveTimeStep(self):
         t1 = self.C_parabolic * self.dx**2/self.eta
         if self.G > 0:
-            t2 = self.C_potential    * self.hbar/np.max(np.abs(self.potential))
+            t2 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
         else:
             t2 = 1e4
         

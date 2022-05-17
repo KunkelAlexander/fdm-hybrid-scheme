@@ -37,7 +37,7 @@ def getBaseConfig():
     c["fps"] = 10
     c["dpi"] = 80
     c["plotDebug"] = False
-    c["m"] = 2
+    c["m"] = 1
     c["hbar"] = 1
     return c
 
@@ -83,8 +83,7 @@ def upwindWithoutConvectionConfig(c):
 def hoUpwindConfig(c):
     c["stencilOrder"] = 2
     c["timeOrder"] = 4
-    c["C_velocity"] = 0.25
-    c["C_parabolic"] = 0.1
+    c["slowDown"] = 10
 
 def hoUpwindWithFrictionConfig(c):
     c["stencilOrder"] = 2
@@ -223,7 +222,7 @@ def accuracyTest1DConfig(c):
     c["fps"] = 1
 
 
-def solitonConfig(c):
+def cosmoConfig(c):
     c["usePeriodicBC"] = True
     c["resolution"] = 128
     c["tEnd"] = 100
@@ -234,7 +233,7 @@ def solitonConfig(c):
     c["gravity"] = 1
     c["fps"] = 2
 
-def expandingSolitonConfig(c):
+def expandingCosmoConfig(c):
     c["usePeriodicBC"] = True
     c["resolution"] = 512
     c["tEnd"] = 10
@@ -356,12 +355,12 @@ def perturbationWave2DConfig(c):
     c["densityYlim"] = [0.6, 1.4]
     c["slowDown"] = 5/c["tEnd"] 
 
-def soliton2DConfig(c):
+def cosmo2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
     c["domainSize"] = 25
     c["resolution"] = 64
-    c["tEnd"] = 3
+    c["tEnd"] = 1.5
     c["slowDown"] = 10
     c["plotPhaseMod2"] = False
     c["phaseYlim"] = [-50, 50]
@@ -369,14 +368,14 @@ def soliton2DConfig(c):
     c["gravity"] = 1
     c["fps"] = 20
 
-def soliton2DCosmoConfig(c):
-    soliton2DConfig(c)
+def cosmo2DExpansionConfig(c):
+    cosmo2DConfig(c)
     c["useCosmology"] = True
     c["t0"] = cosmology.getTime(a = 0.1)
     c["t"]  = 1
     c["resolution"] = 64
 
-def soliton2DTestConfig(c):
+def cosmo2DTestConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
     c["domainSize"] = 25
@@ -409,7 +408,7 @@ def perturbationWave3DConfig(c):
     c["slowDown"] = 5/c["tEnd"] 
 
 
-def soliton3DTestConfig(c):
+def cosmo3DTestConfig(c):
     c["dimension"] = 3
     c["usePeriodicBC"] = True
     c["domainSize"] = 8
@@ -458,16 +457,15 @@ test_list = {
     "travelling wave packet": [tests.travellingWavePacket, travellingWavePacketConfig, None],
     "perturbation wave": [tests.cosmological1D, perturbationWaveConfig, None],
     "accuracy test 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=1, N = 1), accuracyTest1DConfig, None],
-    "soliton": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), solitonConfig, None],
-    "expanding_soliton": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), expandingSolitonConfig, None],
+    "cosmo 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), cosmoConfig, None],
     "perturbation wave 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
-    "soliton 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 10, eps= 5e-3), soliton2DConfig, None],
-    "soliton 2D test": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DTestConfig, None],
-    "soliton 2D cosmo": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), soliton2DCosmoConfig, None],
+    "cosmo 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 10, eps= 5e-3), cosmo2DConfig, None],
+    "cosmo 2D test": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DTestConfig, None],
+    "cosmo 2D expansion": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DExpansionConfig, None],
     "accuracy test 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],
     "stability test 2D": [lambda xx, yy, dx, t, m, hbar: tests.cosmological2D(xx, yy, dx, t, m, hbar, eps=3e-5, Lx=25, Ly=25, N = 10), stabilityTest2DConfig, None],
     "perturbation wave 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), perturbationWave3DConfig, None],
-    "soliton 3D test": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 8, Ly = 8, Lz = 8, N = 3, eps=5e-3), soliton3DTestConfig, None],
+    "cosmo 3D test": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 8, Ly = 8, Lz = 8, N = 3, eps=5e-3), cosmo3DTestConfig, None],
     "accuracy test 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
 }
 
@@ -536,7 +534,7 @@ def run(title, scheme, c, test, label, potential = None, createAnimation = False
     else:
         animation.createAnimation(solver = solver, analyticalSolution = test, filename = filename, waveSolver = waveSolver)
 
-def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolver = False, suffix = ""):
+def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolver = False, suffix = "", extraConfig = None):
     test, testConfig, potential = test_list[test_name]
 
     display(Markdown('# ' + test_name))
@@ -548,6 +546,8 @@ def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolve
             c = getBaseConfig()
             testConfig(c)
             schemeConfig(c)
+            if extraConfig is not None:
+                extraConfig(c)
 
             display(Markdown('## ' + key))
 
@@ -558,6 +558,8 @@ def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolve
         c = getBaseConfig()
         testConfig(c)
         schemeConfig(c)
+        if extraConfig is not None:
+            extraConfig(c)
 
         display(Markdown('## ' + scheme_name))
 

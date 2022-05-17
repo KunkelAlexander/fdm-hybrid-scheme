@@ -385,7 +385,7 @@ class ConvectiveScheme(PhaseScheme):
 
         #kick by dt/2
         fields[1] -= dt/2 * self.potential
-        return field
+        return fields
 
 class FTCSConvectiveScheme(ConvectiveScheme):
     def __init__(self, config, generateIC):
