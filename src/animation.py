@@ -255,9 +255,9 @@ def create1DFrame(
                 im2.set_data(xx, phase)
                 phase_ref = fd.make_1d_continuous(np.angle(psi_ref))
 
-            contphase = fd.make_1d_continuous(phase.copy())
+            #contphase = fd.make_1d_continuous(phase.copy())
 
-            im4.set_data(xx, contphase - contphase[0])
+            im4.set_data(xx, phase_ref)
 
         if plotDebug:
             rms_error = 0
@@ -292,7 +292,7 @@ def create1DFrame(
                     if subregion.isWaveScheme:
                         c = "blue"
                     else:
-                        c = "gray"
+                        c = "white"
 
                     pol1 = ax1.axvspan(
                         pos[0] * solver.dx, pos[-1] * solver.dx, color=c, alpha=0.3)

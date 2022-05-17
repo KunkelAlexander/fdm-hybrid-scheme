@@ -309,7 +309,8 @@ class NoSolver:
 
 
 def createSolver(node, solvertype, hybridsolver):
-    print("Create solver of type: ", solvertype)
+    if hybridsolver.debug:
+        print("Create solver of type: ", solvertype)
 
     if (solvertype == SolverType.WAVESOLVER):
         return WaveScheme(

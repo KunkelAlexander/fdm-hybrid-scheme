@@ -132,7 +132,7 @@ def hybridConfig(c):
     c["stencilOrder"] = 4
     c["debug"] = False
     c["useAdaptiveSubregions"] = True
-    c["outputTimestep"] = True
+    c["outputTimestep"] = False
     c["useAdaptiveTimestep"] = True 
     c["nThreads"] = 2
     c["useHybrid"] = True
@@ -469,8 +469,24 @@ test_list = {
     "accuracy test 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
 }
 
-nice_test_list = ["perturbation wave", "harmonic oscillator coherent state", "quasi-shock", "periodic gaussian wave packet", "hubble expansion", "wave packet collision"]
-nice_scheme_list = ["hybrid", "wave-ftcs2", "wave-ftcs4", "phase-upwind", "phase-ho-upwind", "phase-ho-upwind without diffusion", "phase-ho-upwind without convection"]
+nice_test_list = {
+    "cosmo without gravity": "perturbation wave", 
+    "harmonic oscillator coherent state": "harmonic oscillator coherent state", 
+    "quasi-shock": "quasi-shock", 
+    "gaussian wave packe": "periodic gaussian wave packet", 
+    "expansion wave": "hubble expansion", 
+    "gaussian wave packet collsion": "wave packet collision"
+}
+
+nice_scheme_list = {
+    "phase scheme": "phase-ho-upwind", 
+    "phase scheme without quantum pressure": "phase-ho-upwind without diffusion", 
+    "phase scheme without convective term": "phase-ho-upwind without convection",
+    "first-order phase scheme": "phase-upwind", 
+    "hybrid scheme": "hybrid", 
+    "second-order ftcs wave scheme": "wave-ftcs2", 
+    "fourth-order ftcs wave scheme": "wave-ftcs4", 
+}
 
 def hoUpwindMCConfig(c):
     hoUpwindConfig(c)
