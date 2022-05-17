@@ -69,6 +69,7 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         "timeOrder": 1,
         "rhoOrder": 1,
         "modifiedPQN": 3,
+        "switchingThreshold": 0.04,
 
         # Animation options
         "xlim": [0, 10],

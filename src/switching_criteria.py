@@ -106,3 +106,6 @@ conditions = {
     "peclet sr": lambda density, phase, dx, eta: getPecletSr(density, dx, eta),
     "peclet si": lambda density, phase, dx, eta: getPecletSi(phase, dx, eta),
 } 
+
+def computeSwitchingThreshold(density, phase, dx, eta):
+    return quantumPressure(density, dx) * dx**2

@@ -33,7 +33,7 @@ def getBaseConfig():
     c["useAdaptiveTimestep"] = True
     c["usePeriodicBC"]       = False
     c["gravity"]             = 0
-    c["nThreads"]            = 4
+    c["nThreads"]            = 1
     c["fps"] = 10
     c["dpi"] = 80
     c["plotDebug"] = False

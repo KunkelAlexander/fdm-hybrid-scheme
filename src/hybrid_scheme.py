@@ -10,15 +10,15 @@ import src.fd as fd
 import src.schemes as schemes 
 import src.wave_schemes as wave_schemes 
 import src.phase_schemes as phase_schemes 
+import src.switching_criteria as switching_criteria
 
 import multiprocessing
 
 wave_threshold = 0.0
 splitting_threshold = 0.8
 density_threshold = 1e-10
-dphase_threshold = 20
 interval_length_threshold = 16
-
+dcriterion_threshold = 0.04
 
 class SolverType(Enum):
     NOSOLVER = 0
@@ -74,10 +74,10 @@ class Node:
         sub = np.ix_(*[self.prange(self.nodePosition[i], self.nodePosition[i] + self.nodeN) for i in range(self.dimension)])
 
         density = fields[0][sub]
-        dphase  = fields[1][sub]
+        dcriterion     = fields[1][sub]
 
         cond = np.logical_or((density < density_threshold),
-                             (dphase  > dphase_threshold))
+                             (dcriterion  > dcriterion_threshold))
         return np.sum(cond)/self.nodeN**self.dimension
 
     def update(self, fields):
@@ -205,10 +205,9 @@ class Node:
 
 
 class SubregionScheme:
-    def __init__(self, dx, m, hbar, dimension, subregionPosition, totalN, subregionN, stencilOrder, timeOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
+    def __init__(self, dx, eta, dimension, subregionPosition, totalN, subregionN, stencilOrder, timeOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
         self.dx = dx
-        self.m = m 
-        self.hbar = hbar
+        self.eta = eta
         self.dimension = dimension
         self.subregionN = subregionN
         self.totalN = totalN
@@ -244,25 +243,25 @@ class SubregionScheme:
 
 
 class WaveScheme(SubregionScheme):
-    def __init__(self, dx, m, hbar, dimension, position, totalN, subregionN,  stencilOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
-        super().__init__(dx, m, hbar, dimension, position, totalN, subregionN,  stencilOrder, 2,
+    def __init__(self, dx, eta, dimension, position, totalN, subregionN,  stencilOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
+        super().__init__(dx, eta, dimension, position, totalN, subregionN,  stencilOrder, 2,
                          f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff)
         self.isWaveScheme = True
         self.id = SolverType.WAVESOLVER
 
     def drift(self, density, phase, dt):
-        u0 = np.sqrt(density/self.m) * np.exp(1j * phase)
+        u0 = np.sqrt(density) * np.exp(1j * phase)
         # Update full array u0 at time t0 with timestep dt
-        u1 = u0 + self.hbar/self.m * fd.solvePeriodicFTCSDiffusion(
+        u1 = u0 + self.eta * fd.solvePeriodicFTCSDiffusion(
             u0, dx=self.dx, dt=dt * 1.0, coeff=self.c2_coeff, stencil=self.c2_stencil)
         u2 = 0.5 * u0 + 0.5 * u1
         # Update u1 - stencilOrder points at each side in second time step
         # This avoids updating points in ghost boundary that are not required anymore
-        u2[self.boundaries[1]] += self.hbar/self.m * fd.solvePeriodicFTCSDiffusion(
+        u2[self.boundaries[1]] += self.eta * fd.solvePeriodicFTCSDiffusion(
             u1[self.boundaries[1]], dx=self.dx, dt=dt * 0.5, coeff=self.c2_coeff, stencil=self.c2_stencil)
 
         # Return u2 - 2*stencilOrder points at each side = u2 - 2*ghostBoundarySize
-        new_density = np.abs(u2[self.boundaries[2]])**2 * self.m
+        new_density = np.abs(u2[self.boundaries[2]])**2
         new_phase = self.getPhase(
             u2[self.boundaries[2]], phase[self.boundaries[2]])
 
@@ -281,19 +280,19 @@ class WaveScheme(SubregionScheme):
         return sub_theta
 
 class PhaseScheme(SubregionScheme):
-    def __init__(self, dx, m, hbar, dimension, position, totalN, subregionN,  stencilOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
-        super().__init__(dx, m, hbar, dimension, position, totalN, subregionN,  stencilOrder, 2,
+    def __init__(self, dx, eta, dimension, position, totalN, subregionN,  stencilOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
+        super().__init__(dx, eta, dimension, position, totalN, subregionN,  stencilOrder, 2,
                          f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff)
         self.isWaveScheme = False
         self.id = SolverType.PHASESOLVER
         
 
     def drift(self, d0, p0, dt):
-        dd0, dp0, v0 = phase_schemes.getHODrift(d0, p0, 1.0 * dt, self.dx, self.hbar/self.m, self.f1_stencil, self.f1_coeff, self.b1_stencil,
+        dd0, dp0, v0 = phase_schemes.getHODrift(d0, p0, 1.0 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil,
                                                self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, self.boundaries[1])
         d1 = d0  + dd0
         p1 = p0  + dp0
-        dd1, dp1, v1 = phase_schemes.getHODrift(d1[self.boundaries[1]], p1[self.boundaries[1]], 0.5 * dt, self.dx, self.hbar/self.m, self.f1_stencil,
+        dd1, dp1, v1 = phase_schemes.getHODrift(d1[self.boundaries[1]], p1[self.boundaries[1]], 0.5 * dt, self.dx, self.eta, self.f1_stencil,
                                                self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, self.boundaries[2])
 
         d2 = 0.5 * d0 + 0.5 * d1
@@ -315,8 +314,7 @@ def createSolver(node, solvertype, hybridsolver):
     if (solvertype == SolverType.WAVESOLVER):
         return WaveScheme(
             dx=hybridsolver.dx,
-            m = hybridsolver.m, 
-            hbar = hybridsolver.hbar,
+            eta = hybridsolver.eta, 
             dimension=hybridsolver.dimension,
             position=node.nodePosition,
             totalN=node.totalN,
@@ -334,8 +332,7 @@ def createSolver(node, solvertype, hybridsolver):
     elif (solvertype == SolverType.PHASESOLVER):
         return PhaseScheme(
             dx=hybridsolver.dx,
-            m=hybridsolver.m,
-            hbar=hybridsolver.hbar,
+            eta=hybridsolver.eta,
             dimension=hybridsolver.dimension,
             position=node.nodePosition,
             totalN=node.totalN,
@@ -421,11 +418,11 @@ class HybridScheme(schemes.SchroedingerScheme):
             self.densityBuffer    = np.frombuffer(sharedDensityBuffer).reshape(fieldShape)
             self.phaseBuffer      = np.frombuffer(sharedPhaseBuffer).reshape(fieldShape)
 
-            np.copyto(self.density, np.abs(self.psi) ** 2 * self.m)
+            np.copyto(self.density, np.abs(self.psi) ** 2)
             np.copyto(self.phase, fd.make_continuous(np.angle(self.psi)))
             self.pool = Pool(self.nThreads, initializer = init, initargs=(sharedDensity, sharedPhase, sharedDensityBuffer, sharedPhaseBuffer, fieldShape))
         else:
-            self.density = np.abs(self.psi) ** 2 * self.m
+            self.density = np.abs(self.psi) ** 2
             self.phase   = fd.make_continuous(np.angle(self.psi))
 
         print(f"Set up nD binary tree with N = {self.innerN}")
@@ -444,7 +441,7 @@ class HybridScheme(schemes.SchroedingerScheme):
         self.updateTree()
 
     def updateTree(self):
-        self.binaryTree.update([self.density, np.abs(fd.deltaSi(self.density, self.phase, self.dx))])
+        self.binaryTree.update([self.density, np.abs(switching_criteria.computeSwitchingThreshold(self.density, self.phase, self.dx, self.eta))])
         self.subregions = []
         self.binaryTree.getSolvers(self.subregions)
 
