@@ -12,7 +12,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
         super().__init__(config, generateIC)
 
         self.fields    = np.zeros((2, *self.psi.shape))
-        self.fields[0] = np.abs(self.psi) ** 2 * self.m
+        self.fields[0] = np.abs(self.psi) ** 2
         self.fields[1] = fd.make_continuous(np.angle(self.psi))
         
         self.turnOffConvection = config["turnOffConvection"]
@@ -22,8 +22,8 @@ class PhaseScheme(schemes.SchroedingerScheme):
         self.C_acceleration    = config["C_acceleration"]
 
     def getDensity(self):
-        return self.fields[0] / self.m
-
+        return self.fields[0]
+        
     def getPhase(self):
         return self.fields[1]
 
@@ -43,7 +43,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
     #Only required if we do not use periodic boundary conditions
     def setBoundaryConditions(self, fields):
         psi = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
-        fields[0][self.boundary] = (np.abs(psi)**2)[self.boundary] * self.m
+        fields[0][self.boundary] = (np.abs(psi)**2)[self.boundary]
         fields[1][self.boundary] = np.angle(psi)[self.boundary]
         #fields[1] = fd.make_boundary_continuous(fields[1])
 

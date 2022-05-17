@@ -913,7 +913,7 @@ def createAnimation(
             solver.step(dt)
             if waveSolver is not None:
                 waveSolver.step(dt)
-            t += dt
+            t += dt * solver.getScaleFactor()**2
             if t >= tfin:
                 break
 

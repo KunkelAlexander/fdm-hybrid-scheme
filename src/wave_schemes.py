@@ -26,7 +26,7 @@ class WaveScheme(schemes.SchroedingerScheme):
         self.drift(dt)
 
         #update potential
-        self.potential = self.computePotential(np.abs(self.psi) ** 2 * self.m)
+        self.potential = self.computePotential(np.abs(self.psi) ** 2)
 
         #(1/2) kick
         self.psi = np.exp(-1.0j * dt / 2 * self.potential) * self.psi

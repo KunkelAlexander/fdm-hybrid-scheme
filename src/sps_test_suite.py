@@ -360,7 +360,7 @@ def soliton2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
     c["domainSize"] = 25
-    c["resolution"] = 128
+    c["resolution"] = 64
     c["tEnd"] = 3
     c["slowDown"] = 10
     c["plotPhaseMod2"] = False
@@ -471,6 +471,9 @@ test_list = {
     "accuracy test 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
 }
 
+nice_test_list = ["perturbation wave", "harmonic oscillator coherent state", "quasi-shock", "periodic gaussian wave packet", "hubble expansion", "wave packet collision"]
+nice_scheme_list = ["hybrid", "wave-ftcs2", "wave-ftcs4", "phase-upwind", "phase-ho-upwind", "phase-ho-upwind without diffusion", "phase-ho-upwind without convection"]
+
 def hoUpwindMCConfig(c):
     hoUpwindConfig(c)
     c["fluxLimiter"] = "MC"
@@ -508,8 +511,8 @@ scheme_list = {
     "fluid-muscl-hancock": [fluid_schemes.MUSCLHancock, musclHancockConfig],
 }
 
-def run(title, scheme, c, test, label, potential = None, createAnimation = False, useWaveSolver = False):
-    filename = title.lower().replace(" ", "_") + "_" + label.lower().replace(" ", "_")
+def run(title, scheme, c, test, label, potential = None, createAnimation = False, useWaveSolver = False, suffix = ""):
+    filename = title.lower().replace(" ", "_") + "_" + label.lower().replace(" ", "_")+suffix
     solver = scheme(c, test)
     solver.setExternalPotentialFunction(potential)
 
@@ -533,7 +536,7 @@ def run(title, scheme, c, test, label, potential = None, createAnimation = False
     else:
         animation.createAnimation(solver = solver, analyticalSolution = test, filename = filename, waveSolver = waveSolver)
 
-def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolver = False):
+def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolver = False, suffix = ""):
     test, testConfig, potential = test_list[test_name]
 
     display(Markdown('# ' + test_name))
@@ -548,7 +551,7 @@ def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolve
 
             display(Markdown('## ' + key))
 
-            run(key, scheme, c, test, key, potential, createAnimation, useWaveSolver)
+            run(key, scheme, c, test, key, potential, createAnimation, useWaveSolver, suffix)
     else:
         scheme, schemeConfig = scheme_list[scheme_name]
 
@@ -558,4 +561,4 @@ def runTest(test_name, scheme_name = None, createAnimation = False, useWaveSolve
 
         display(Markdown('## ' + scheme_name))
 
-        run(test_name, scheme, c, test, scheme_name, potential, createAnimation, useWaveSolver)
+        run(test_name, scheme, c, test, scheme_name, potential, createAnimation, useWaveSolver, suffix)

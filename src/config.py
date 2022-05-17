@@ -42,7 +42,7 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
 
         # Gravity & cosmology
         "hbar" : 1,
-        "m" : 2,
+        "m" : 1,
         "gravity": 0,  # Turn on self-gravity
         "useCosmology": False,
 

@@ -327,17 +327,17 @@ class SchroedingerScheme(Scheme):
     def setExternalPotentialFunction(self, potentialFunction):
         self.externalPotential = potentialFunction
 
-    def computePotential(self, density):
-        if np.isnan(density).any():
-            print("Density array in computePotential contained nan")
+    def computePotential(self, psisq):
+        if np.isnan(psisq).any():
+            print("psisq array in computePotential contained nan")
             self.t = self.tEnd 
             return 
 
-        V = np.zeros(density.shape)
+        V = np.zeros(psisq.shape)
 
         if self.G != 0:
             V += 1/self.eta * fd.computePotential(
-                density, self.G * self.getScaleFactor(), self.kSq, self.workers
+                psisq, self.m, self.G * self.getScaleFactor(), self.kSq, self.workers
             )
 
         if self.externalPotential is not None:
