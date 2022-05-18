@@ -587,7 +587,9 @@ def create2DFrame(
         #title3.set_text(r"relative density error")
         #title6.set_text(r"relative phase error")
 
-        plt.savefig(f"plots/2d/{filename}.pdf", bbox_inches="tight")
+        if solver.config["savePlots"]:
+            if os.path.exists(f"plots/2d"):
+                plt.savefig(f"plots/2d/{filename}.pdf", bbox_inches="tight")
 
         if os.path.exists(f"runs/2d/{filename}"):
             np.savez_compressed(
