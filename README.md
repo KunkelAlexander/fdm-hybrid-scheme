@@ -4,7 +4,7 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 
 ## Features
 - Wave schemes (Spectral, FTCS, Crank-Nicolson)
-- Fluid scheme (MUSCL-Hancok)
+- Fluid scheme (MUSCL-Hancock)
 - Phase schemes (First-order and second order)
 - Poisson solver (Explicit and implicit with finite differences, Spectral)
 - CPU parallelisation for hybrid solver
@@ -13,11 +13,11 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 - numpy, scipy, matplotlib, findiff
 
 ## Usage
- - The Jupyter notebook accompanying chapter 4 is called "chapter4.ipynb". 
+ - The Jupyter notebook accompanying chapter 4 are called "advection_widget.ipynb" and "sps_widget.ipynb". 
 
 ## Known issues
- - Dimensionful units not implemented
  - Convective schemes do not work properly
+ - Not all schemes are stable in the standard settings
  
 ## Credit
 
