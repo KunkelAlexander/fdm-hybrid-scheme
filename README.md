@@ -13,7 +13,7 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 - numpy, scipy, matplotlib, findiff
 
 ## Usage
- - The Jupyter notebook accompanying chapter 4 is called "chapter4.ipynb". 
+ - The Jupyter notebook accompanying chapter 4 are called "advection_widget.ipynb" and "sps_widget.ipynb". 
 
 ## Known issues
  - Convective schemes do not work properly
