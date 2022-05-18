@@ -479,8 +479,6 @@ class HybridScheme(schemes.SchroedingerScheme):
         # kick by dt/2
         self.phase -= dt/2 * self.potential
 
-        self.phase = fd.make_continuous(self.phase)
-
         self.t += dt * self.getScaleFactor()**2
 
     def getTimeStep(self):

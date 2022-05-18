@@ -162,12 +162,8 @@ def cosmological1D(x, dx, t, m = 1, hbar = 1, Lx=1, N=3, eps = 5e-3):
 
     return normalise(psi)
 
-
-
-
-@njit
 def cosmological2D(x, y, dx, t, m = 1, hbar = 1, Lx=25, Ly=25, N=10, eps=5e-3):
-    psi = np.ones(x.shape, dtype=np.complex128)
+    psi = np.ones(x.shape, dtype=np.complex)
     for n in range(N):
         for m in range(N):
             kx = 2 * np.pi * (1 + n) / Lx
@@ -249,7 +245,7 @@ def twoWavePackets3D(x, y, z, dx, t, m = 1, hbar = 1, x0 = 3, x1 = 7, alpha = 1.
 
 @njit
 def cosmological3D(x, y, z, dx, t, m = 1, hbar = 1, Lx=1, Ly=1, Lz=1, N=10, eps = 5e-3):
-    psi = np.ones(x.shape, dtype=np.complex128)
+    psi = np.ones(x.shape, dtype=np.complex)
     for n in range(N):
         for m in range(N):
           for l in range(N):
