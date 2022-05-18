@@ -81,6 +81,7 @@ def generateConfig(t0=0, resolution=512, dt=1e-4):
         #Overwrite default settings
         #"dpi" : 600, 
         #"figsize": [3.54, 3.54],
+        "plotTime" : True,
         "plotDebug": True,
         "plotPhase": True,
         "savePlots": False,

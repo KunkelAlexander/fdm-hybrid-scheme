@@ -43,7 +43,7 @@ fluxLimiterDictionary = {
 class Scheme:
     def __init__(self, config, generateIC):
 
-        print(f"Constructing {self.getName()} scheme")
+        #print(f"Constructing {self.getName()} scheme")
 
         self.config              = config
 
@@ -268,7 +268,8 @@ class SchroedingerScheme(Scheme):
         self.hbar = config["hbar"]
         self.m    = config["m"]
         self.eta = self.hbar / self.m
-        print(f"hbar/m is {self.eta}")
+        if self.debug:
+            print(f"hbar/m is {self.eta}")
 
         self.psi = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
         self.potential = np.zeros(self.psi.shape, dtype=np.float128)

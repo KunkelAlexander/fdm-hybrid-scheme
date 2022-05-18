@@ -59,7 +59,7 @@ def interactive_advection_test(t, resolution, time_order, scheme, test, limiter,
         c["dpi"] = 600
         c["figsize"] = [3.54 * 2, 3.54]
     else:
-        c["dpi"] = 120
+        c["dpi"] = 80
         c["figsize"] = [3.54 * 2, 3.54]
 
     solver = algorithms[scheme](c, tests[test])

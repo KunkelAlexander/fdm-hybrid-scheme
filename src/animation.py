@@ -252,7 +252,7 @@ def create1DFrame(
                 im2.set_data(xx, np.angle(np.exp(1j * phase)))
                 phase_ref = np.angle(psi_ref)
             else:
-                im2.set_data(xx, phase)
+                im2.set_data(xx, phase - phase[0])
                 phase_ref = fd.make_1d_continuous(np.angle(psi_ref))
 
             #contphase = fd.make_1d_continuous(phase.copy())
@@ -497,6 +497,7 @@ def create2DFrame(
         if hasattr(solver, "useHybrid"):
             if solver.useHybrid:
                 subregions = []
+                wave_scheme_subregion_counter = 0
                 solver.binaryTree.getSubregions(subregions)
                 for N0, N, isWaveScheme in subregions:
                     if isWaveScheme:
@@ -509,8 +510,9 @@ def create2DFrame(
                         pol2 = ax4.add_patch(rect2)
                         subregion_patches.append(rect1)
                         subregion_patches.append(rect2)
+                        wave_scheme_subregion_counter += 1
                 print(
-                    f"{len(subregions)} wave scheme subregions with {solver.binaryTree.getWaveVolumeFraction() * 100} percent of volume.")
+                    f"{wave_scheme_subregion_counter} wave scheme subregions with {solver.binaryTree.getWaveVolumeFraction() * 100} percent of volume.")
 
         t = solver.getTime()
         a = solver.getScaleFactor()
@@ -542,11 +544,14 @@ def create2DFrame(
         im6.set_array(np.abs(np.angle(np.exp(1j * (phase - phase_ref))
                                       )/(np.abs(phase_ref) + 1e-8 * (phase_ref == 0))))
 
-        current_time = (
-            "t = "
-            + f"{t:.3f}"
-            + f"; a = {a:.3f}"
-        )
+        current_time = ""
+        if "plotTime" in config:
+            if config["plotTime"]:
+                current_time += (
+                    "t = "
+                    + f"{t:.3f}"
+                    + f"; a = {a:.3f}"
+                )
 
         if config["plotDebug"]:
 

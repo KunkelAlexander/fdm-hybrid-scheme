@@ -470,7 +470,8 @@ test_list = {
 }
 
 nice_test_list = {
-    "cosmo without gravity": "perturbation wave", 
+    "cosmo with gravity (2D)": "cosmo 2D",
+    "cosmo without gravity (1D)": "perturbation wave", 
     "harmonic oscillator coherent state": "harmonic oscillator coherent state", 
     "quasi-shock": "quasi-shock", 
     "gaussian wave packe": "periodic gaussian wave packet", 
