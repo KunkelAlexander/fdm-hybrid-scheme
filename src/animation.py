@@ -887,6 +887,7 @@ def drawFrame(
 
     config = solver.config
 
+
     fig, init, draw = createFrame(
         solver, label, config, analyticalSolution, filename, waveSolver, advection, projectionAxis
     )

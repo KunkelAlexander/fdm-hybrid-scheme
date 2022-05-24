@@ -309,12 +309,12 @@ def stabilityTest2DConfig(c):
     c["usePeriodicBC"] = True
     c["dimension"] = 2
     c["resolution"] = 64
-    c["tEnd"] = 25
-    c["domainSize"] = 25
-    c["xlim"] = [0, 25]
+    c["tEnd"] = 2
+    c["domainSize"] = 1
+    c["xlim"] = [0, 1]
     c["densityYlim"] = [0, 20]
     c["phaseYlim"] = [-3.14, 3.14]
-    c["slowDown"] = 1
+    c["slowDown"] = 5
     c["fps"] = 1
     c["gravity"] = 1
 
@@ -463,7 +463,7 @@ test_list = {
     "cosmo 2D test": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DTestConfig, None],
     "cosmo 2D expansion": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DExpansionConfig, None],
     "accuracy test 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],
-    "stability test 2D": [lambda xx, yy, dx, t, m, hbar: tests.cosmological2D(xx, yy, dx, t, m, hbar, eps=3e-5, Lx=25, Ly=25, N = 10), stabilityTest2DConfig, None],
+    "stability test 2D": [lambda xx, yy, dx, t, m, hbar: tests.cosmological2D(xx, yy, dx, t, m, hbar, eps=3e-5, Lx=1, Ly=1, N = 10), stabilityTest2DConfig, None],
     "perturbation wave 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), perturbationWave3DConfig, None],
     "cosmo 3D test": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 8, Ly = 8, Lz = 8, N = 3, eps=5e-3), cosmo3DTestConfig, None],
     "accuracy test 3D": [lambda x, y, z, dx, t, m, hbar: tests.cosmological3D(x, y, z, dx, t, m, hbar, Lx = 1, Ly = 1, Lz = 1, N = 1, eps=5e-3), accuracyTest3DConfig, None],
