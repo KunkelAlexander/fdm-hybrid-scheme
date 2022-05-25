@@ -213,6 +213,7 @@ class SubregionScheme:
         self.totalN = totalN
         self.ghostBoundarySize = timeOrder * stencilOrder
         self.boundaries = []
+        print("timeOrder", "stencilOrder", timeOrder, stencilOrder)
 
         # self.boundaries contains indices of subarrays that need updating at different levels of RK scheme from perspective of subregion itself
         for i in range(2 * timeOrder + 1):
@@ -242,28 +243,37 @@ class SubregionScheme:
         return np.array(range(low, high)) % self.totalN
 
 
+
 class WaveScheme(SubregionScheme):
-    def __init__(self, dx, eta, dimension, position, totalN, subregionN,  stencilOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
-        super().__init__(dx, eta, dimension, position, totalN, subregionN,  stencilOrder, 2,
+    def __init__(self, dx, eta, dimension, position, totalN, subregionN,  stencilOrder, timeOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
+        super().__init__(dx, eta, dimension, position, totalN, subregionN,  stencilOrder, timeOrder,
                          f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff)
         self.isWaveScheme = True
         self.id = SolverType.WAVESOLVER
 
     def drift(self, density, phase, dt):
         u0 = np.sqrt(density) * np.exp(1j * phase)
-        # Update full array u0 at time t0 with timestep dt
-        u1 = u0 + self.eta * fd.solvePeriodicFTCSDiffusion(
-            u0, dx=self.dx, dt=dt * 1.0, coeff=self.c2_coeff, stencil=self.c2_stencil)
-        u2 = 0.5 * u0 + 0.5 * u1
-        # Update u1 - stencilOrder points at each side in second time step
-        # This avoids updating points in ghost boundary that are not required anymore
-        u2[self.boundaries[1]] += self.eta * fd.solvePeriodicFTCSDiffusion(
-            u1[self.boundaries[1]], dx=self.dx, dt=dt * 0.5, coeff=self.c2_coeff, stencil=self.c2_stencil)
+
+
+        u1 = u0 + self.eta * fd.solvePeriodicFTCSDiffusion(u0, dx = self.dx, dt = dt, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        u2 = 3 / 4 * u0 + 1 / 4 * u1
+        u2[self.boundaries[1]] += self.eta * fd.solvePeriodicFTCSDiffusion(u1[self.boundaries[1]], dx = self.dx, dt = dt * 1/4, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        u3 = 1 / 3 * u0 + 2 / 3 * u2
+        u3[self.boundaries[2]] += self.eta * fd.solvePeriodicFTCSDiffusion(u2[self.boundaries[2]], dx = self.dx, dt = dt * 2/3, coeff = self.c2_coeff, stencil = self.c2_stencil)
+        
+        ## Update full array u0 at time t0 with timestep dt
+        #u1 = u0 + self.eta * fd.solvePeriodicFTCSDiffusion(
+        #    u0, dx=self.dx, dt=dt * 1.0, coeff=self.c2_coeff, stencil=self.c2_stencil)
+        #u2 = 0.5 * u0 + 0.5 * u1
+        ## Update u1 - stencilOrder points at each side in second time step
+        ## This avoids updating points in ghost boundary that are not required anymore
+        #u2[self.boundaries[1]] += self.eta * fd.solvePeriodicFTCSDiffusion(
+        #    u1[self.boundaries[1]], dx=self.dx, dt=dt * 0.5, coeff=self.c2_coeff, stencil=self.c2_stencil)
 
         # Return u2 - 2*stencilOrder points at each side = u2 - 2*ghostBoundarySize
-        new_density = np.abs(u2[self.boundaries[2]])**2
+        new_density = np.abs(u3[self.boundaries[3]])**2
         new_phase = self.getPhase(
-            u2[self.boundaries[2]], phase[self.boundaries[2]])
+            u3[self.boundaries[3]], phase[self.boundaries[3]])
 
         return new_density, new_phase, 0
 
@@ -280,27 +290,35 @@ class WaveScheme(SubregionScheme):
         return sub_theta
 
 class PhaseScheme(SubregionScheme):
-    def __init__(self, dx, eta, dimension, position, totalN, subregionN,  stencilOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
-        super().__init__(dx, eta, dimension, position, totalN, subregionN,  stencilOrder, 2,
+    def __init__(self, dx, eta, dimension, position, totalN, subregionN,  stencilOrder, timeOrder, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
+        super().__init__(dx, eta, dimension, position, totalN, subregionN,  stencilOrder, timeOrder,
                          f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff)
         self.isWaveScheme = False
         self.id = SolverType.PHASESOLVER
         
 
     def drift(self, d0, p0, dt):
-        dd0, dp0, v0 = phase_schemes.getHODrift(d0, p0, 1.0 * dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil,
-                                               self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, self.boundaries[1])
+        dd0, dp0, v0 = phase_schemes.getHODrift(d0, p0, dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil,
+                                               self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff)
         d1 = d0  + dd0
         p1 = p0  + dp0
-        dd1, dp1, v1 = phase_schemes.getHODrift(d1[self.boundaries[1]], p1[self.boundaries[1]], 0.5 * dt, self.dx, self.eta, self.f1_stencil,
-                                               self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, self.boundaries[2])
+        dd1, dp1, v1 = phase_schemes.getHODrift(d1[self.boundaries[1]], p1[self.boundaries[1]], 1/4 * dt, self.dx, self.eta, self.f1_stencil,
+                                               self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff)
 
-        d2 = 0.5 * d0 + 0.5 * d1
-        p2 = 0.5 * p0 + 0.5 * p1
+        d2 = 3/4 * d0 + 1/4 * d1
+        p2 = 3/4 * p0 + 1/4 * p1
         d2[self.boundaries[1]] += dd1
         p2[self.boundaries[1]] += dp1
 
-        return d2[self.boundaries[2]], p2[self.boundaries[2]], np.maximum(v0, v1)
+        dd2, dp2, v2 = phase_schemes.getHODrift(d2[self.boundaries[2]], p2[self.boundaries[2]], 2/3 * dt, self.dx, self.eta, self.f1_stencil,
+                                               self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff)
+
+        d3 = 1/3 * d0 + 2/3 * d2
+        p3 = 1/3 * p0 + 2/3 * p2
+        d3[self.boundaries[2]] += dd2
+        p3[self.boundaries[2]] += dp2
+
+        return d3[self.boundaries[3]], p3[self.boundaries[3]], np.max([v0, v1, v2])
 
 
 class NoSolver:
@@ -321,6 +339,7 @@ def createSolver(node, solvertype, hybridsolver):
             totalN=node.totalN,
             subregionN=node.nodeN,
             stencilOrder=hybridsolver.stencilOrder,
+            timeOrder=hybridsolver.timeOrder,
             f1_stencil=hybridsolver.f1_stencil,
             f1_coeff=hybridsolver.f1_coeff,
             b1_stencil=hybridsolver.b1_stencil,
@@ -338,15 +357,16 @@ def createSolver(node, solvertype, hybridsolver):
             position=node.nodePosition,
             totalN=node.totalN,
             subregionN=node.nodeN,
-            stencilOrder=hybridsolver.stencilOrder,
-            f1_stencil=hybridsolver.f1_stencil,
-            f1_coeff=hybridsolver.f1_coeff,
-            b1_stencil=hybridsolver.b1_stencil,
-            b1_coeff=hybridsolver.b1_coeff,
-            c1_stencil=hybridsolver.c1_stencil,
-            c1_coeff=hybridsolver.c1_coeff,
-            c2_stencil=hybridsolver.c2_stencil,
-            c2_coeff=hybridsolver.c2_coeff
+            stencilOrder=hybridsolver.phaseStencilOrder,
+            timeOrder =hybridsolver.timeOrder,
+            f1_stencil=hybridsolver.phase_f1_stencil,
+            f1_coeff  =hybridsolver.phase_f1_coeff,
+            b1_stencil=hybridsolver.phase_b1_stencil,
+            b1_coeff  =hybridsolver.phase_b1_coeff,
+            c1_stencil=hybridsolver.phase_c1_stencil,
+            c1_coeff  =hybridsolver.phase_c1_coeff,
+            c2_stencil=hybridsolver.phase_c2_stencil,
+            c2_coeff  =hybridsolver.phase_c2_coeff
         )
     else:
         return NoSolver()
@@ -397,8 +417,21 @@ class HybridScheme(schemes.SchroedingerScheme):
         if not self.usePeriodicBC:
             raise ValueError("Hybrid scheme only supports periodic BC")
 
+        self.C_velocity = c["C_velocity"]
         self.vmax = 0
-        self.subGhostBoundarySize = self.stencilOrder * self.timeOrder
+
+        self.timeOrder = 3
+
+        self.phaseStencilOrder = 2
+        self.phase_f1_stencil, self.phase_f1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = self.phaseStencilOrder, mode = fd.MODE_FORWARD)
+        self.phase_b1_stencil, self.phase_b1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = self.phaseStencilOrder, mode = fd.MODE_BACKWARD)
+        self.phase_c1_stencil, self.phase_c1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = self.phaseStencilOrder + self.phaseStencilOrder % 2, mode = fd.MODE_CENTERED)
+        self.phase_c2_stencil, self.phase_c2_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 2, accuracy = self.phaseStencilOrder + self.phaseStencilOrder % 2, mode = fd.MODE_CENTERED)
+        self.phase_c2_stencil, self.phase_c2_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 2, accuracy = self.phaseStencilOrder + self.phaseStencilOrder % 2, mode = fd.MODE_CENTERED)
+
+
+        self.waveGhostBoundarySize  = self.stencilOrder * self.timeOrder
+        self.phaseGhostBoundarySize = self.phaseStencilOrder * self.timeOrder
         self.treeUpdateFrequency = 10 
         self.treeUpdateCounter = 0
 
@@ -466,11 +499,11 @@ class HybridScheme(schemes.SchroedingerScheme):
             np.copyto(self.phase  , self.phaseBuffer)
         else:
             updatedSubregions = [updateSubregion(
-                sub, dt, self.fields) for sub in self.subregions]
+                sub, dt, [self.density, self.phase]) for sub in self.subregions]
 
             for fields, outerInner, vmax in updatedSubregions:
                 self.vmax = np.maximum(vmax, self.vmax)
-                self.fields[0][outerInner], self.fields[1][outerInner] = fields
+                self.density[outerInner], self.phase[outerInner] = fields
 
 
         # update potential
@@ -492,8 +525,8 @@ class HybridScheme(schemes.SchroedingerScheme):
         #t3 = .5 * 0.4 * (self.dx/(self.amax + 1e-8))**0.5
 
 
-        t1 = 0.125    * self.dx**2/self.eta
-        t2 = 1.0      * self.dx/(2 * self.dimension*(self.vmax + 1e-8)*self.eta)
+        t1 = self.C_parabolic      * self.dx**2/self.eta
+        t2 = self.C_velocity      * self.dx/(2 * self.dimension*(self.vmax + 1e-8)*self.eta)
         if self.G > 0:
             t3 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
         else:

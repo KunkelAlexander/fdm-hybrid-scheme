@@ -128,8 +128,8 @@ def musclHancockConfig(c):
     c["timeOrder"] = 2
 
 def hybridConfig(c):
-    c["timeOrder"] = 2
-    c["stencilOrder"] = 4
+    c["timeOrder"] = 3
+    c["stencilOrder"] = 2
     c["debug"] = False
     c["useAdaptiveSubregions"] = True
     c["outputTimestep"] = False
@@ -358,7 +358,7 @@ def perturbationWave2DConfig(c):
 def cosmo2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
-    c["domainSize"] = 25
+    c["domainSize"] = 4
     c["resolution"] = 64
     c["tEnd"] = 1.5
     c["slowDown"] = 10
@@ -459,7 +459,7 @@ test_list = {
     "accuracy test 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=1, N = 1), accuracyTest1DConfig, None],
     "cosmo 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), cosmoConfig, None],
     "perturbation wave 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
-    "cosmo 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 10, eps= 5e-3), cosmo2DConfig, None],
+    "cosmo 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 4, Ly = 4, N = 10, eps= 5e-3), cosmo2DConfig, None],
     "cosmo 2D test": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DTestConfig, None],
     "cosmo 2D expansion": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DExpansionConfig, None],
     "accuracy test 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],

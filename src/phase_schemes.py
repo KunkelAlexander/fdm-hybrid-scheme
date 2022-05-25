@@ -187,10 +187,7 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
         vp = (pp - pc)/dx 
         vm = np.roll(vp, fd.ROLL_L, axis = i)
 
-        if inner is not None:
-            vmax = np.maximum(vmax, np.max(np.maximum(vp,vm)[inner]))
-        else:
-            vmax = np.maximum(vmax, np.max(np.maximum(vp,vm)[inner]))
+        vmax = np.maximum(vmax, np.max(np.maximum(vp,vm)[2:-2]))
 
         ### COMPUTE UPWIND-FLUX FOR DENSITY ###
         qm = ((rb - r2b) * (vm >= 0) + (rf  - rc) * (vm <= 0)) / ((rc - rb) + ((rc - rb) == 0) * 1e-8)
