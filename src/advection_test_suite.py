@@ -13,11 +13,14 @@ algorithms = {
     "upwind": advection_schemes.UpwindScheme,
     "second-order upwind": advection_schemes.SecondOrderUpwindScheme,
     "sou with limiter": advection_schemes.SOLimiterScheme,
-    "lax-wendroff": advection_schemes.LaxWendroffScheme
+    "lax-wendroff": advection_schemes.LaxWendroffScheme, 
+    "muscl": advection_schemes.MUSCLScheme,
+    "ppm": advection_schemes.PPMScheme
 }
 
 tests = {
     "gaussian": advection_tests.gaussian1D,
+    "reverse gaussian": lambda xx, dx, t: advection_tests.gaussian1D(xx, dx, t, v = -1, x0=4),
     "tophat": advection_tests.tophat1D
 }
 
@@ -44,7 +47,10 @@ def getBaseConfig():
     c["size"] = (3.54 * 2, 3.54)#(3.54 * 1.5, 3.54)
     c["savePlots"] = True
     c["cfl"] = 0.1
+    c["plotPhase"] = False 
+    c["plotDebug"] = False
     return c
+
 
 def interactive_advection_test(t, resolution, time_order, scheme, test, limiter, take_snapshot):
     c = getBaseConfig()

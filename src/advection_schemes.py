@@ -517,3 +517,130 @@ class ENOScheme(AdvectionScheme):
 
     def getName(self):
         return "eno scheme"
+
+
+### Implement piecewise parabolic method for advection scheme (Colella & Woodward, 1984 )
+### ( https://doi.org/10.1016/0021-9991(84)90143-8 )
+###
+### Approximate density profile rho(xi) in each zone as 
+### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
+###       where x = (xi - xi_p)/dxi
+###
+### 
+
+class PPMScheme(AdvectionScheme):
+
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+    def getUpdatedFields(self, dt, fields):
+        self.setPhase(fields)
+        density, phase = fields
+        dxi = self.dx
+
+        ddensity = np.zeros(density.shape)
+        dphase   = np.zeros(phase.shape)
+
+        for i in range(self.dimension):
+
+            ### Face-centered velocities 
+            #v_i-1/2
+            vm2 = fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
+            #v_i+1/2
+            vp2 = np.roll(vm2, fd.ROLL_R, axis=i)
+            #v_i
+            v   = (vm2 + vp2)/2
+
+            v   = np.ones(v.shape)
+
+            if self.debug:
+                plt.title("v")
+                plt.plot(v)
+                plt.show()
+
+            ### Density cell-averages
+            #rho_i
+            a   = density 
+            #rho_i+1
+            ap  = np.roll(a,     fd.ROLL_R) 
+            #rho_i+2
+            app = np.roll(a, 2 * fd.ROLL_R) 
+            #rho_i-1
+            am  = np.roll(a,     fd.ROLL_L)
+            #rho_i-2
+            amm = np.roll(a, 2 * fd.ROLL_L)
+            
+            ### Face-centered density approximations obtained via parabolic interpolation
+            ### Yields continuous approximation to density 
+            #rho_i+1/2
+            ap2 = 7/12 * ( a + ap ) - 1/12 * ( app + am )
+            #rho_i-1/2
+            am2 = np.roll(ap2, fd.ROLL_L) 
+
+            ### Face-centered density approximations that take into account monotonicity
+            ### Potentially discontinuous, shock-resolving approximation to density
+            a_R = ap2
+            a_L = am2
+
+            ### Set coefficients of the interpolating parabola such that it does not overshoot
+            
+            # 1. If a is local extremum, set the interpolation function to be constant
+            cond = ((a_R - a)*(a - a_L) <= 0) # cond == True <-> a is local extremum
+            a_L[cond] = a_R[cond] = a[cond]
+            # 2. If a between a_R and a_L, but very close to them, the parabola might still overshoot
+            cond = + (a_R - a_L)**2 / 6 < (a_R - a_L) * (a - 1/2 * (a_L + a_R))
+            a_L[cond] = 3 * a[cond] - 2 * a_R[cond]
+            cond = - (a_R - a_L)**2 / 6 > (a_R - a_L) * (a - 1/2 * (a_L + a_R))
+            a_R[cond] = 3 * a[cond] - 2 * a_L[cond]
+
+
+            ### Free parameters in approximation polynomial 
+            ### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
+            ### where x = (xi - xi_p)/dxi
+            d_a =                  a_R - a_L 
+            a_6 = 6 * (a - 1/2 * ( a_R + a_L))
+
+            a_Lp = np.roll(a_L, fd.ROLL_R) 
+            d_ap = np.roll(d_a, fd.ROLL_R)
+            a_6p = np.roll(a_6, fd.ROLL_R)
+
+            ### Compute density fluxes at i+1/2 as seen by cells centered at i (fp_R) and i + 1 (fp_L)
+            y =  v * dt
+            x =  y / dxi
+            fp_L = a_R  - x/2 * (d_a  - ( 1 - 2/3 * x) * a_6 )
+
+            y = -v * dt
+            x =  y / dxi
+            fp_R = a_Lp + x/2 * (d_ap + ( 1 - 2/3 * x) * a_6p)
+
+            if self.debug:
+                plt.title("fp_L")
+                plt.plot(fp_L)
+                plt.show()
+                plt.title("fp_R")
+                plt.plot(fp_R)
+                plt.show()
+
+            ### Enforce upwinding for density fluxes abar
+            abar_p2 = np.zeros(fp_R.shape)
+
+            abar_p2 = fp_L * ( v >= 0) + fp_R * ( v < 0 )
+
+            abar_m2 = np.roll(abar_p2, fd.ROLL_L)
+
+
+            if self.debug:
+                plt.title("abar_p2")
+                plt.plot(abar_p2)
+                plt.show()
+                plt.title("abar_m2")
+                plt.plot(abar_m2)
+                plt.show()
+            
+            ddensity = v / dxi * (abar_p2 - abar_m2)
+
+        return -dt * np.array([ddensity, dphase])
+
+
+    def getName(self):
+        return "ppm scheme"
