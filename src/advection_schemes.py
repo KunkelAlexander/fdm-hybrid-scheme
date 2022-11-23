@@ -531,12 +531,21 @@ class ENOScheme(AdvectionScheme):
 class PPMScheme(AdvectionScheme):
 
     def __init__(self, config, generateIC):
-        super().__init__(config, generateIC)
+        super().__init__(config, generateIC)#
+        self.eta1 = 20
+        self.eta2 = 0.05
+        self.epsilon = 0.01 
+
+        self.fix1 = config["fix1"]
+        self.fix2 = config["fix2"]
 
     def getUpdatedFields(self, dt, fields):
         self.setPhase(fields)
         density, phase = fields
         dxi = self.dx
+        eta1    = self.eta1
+        eta2    = self.eta2
+        epsilon = self.epsilon 
 
         ddensity = np.zeros(density.shape)
         dphase   = np.zeros(phase.shape)
@@ -570,10 +579,33 @@ class PPMScheme(AdvectionScheme):
             #rho_i-2
             amm = np.roll(a, 2 * fd.ROLL_L)
             
+
+            # Average slope of parabola
+            delta_a = 1/2 * (ap - am)
+            delta_m = np.minimum(np.abs(delta_a), 2 * np.minimum(np.abs(a - am), np.abs(ap - a))) * np.sign(delta_a)
+
+            if self.debug:
+                plt.title("delta_a")
+                plt.plot(delta_a)
+                plt.show()
+                plt.title("delta_m")
+                plt.plot(delta_m)
+                plt.show()
+                plt.title("delta_a - delta_m")
+                plt.plot(delta_a - delta_m)
+                plt.show()
+
+            cond          = ((ap - a) * ( a - am )) <= 0
+            delta_m[cond] = 0
+
+            delta_mm = np.roll(delta_m, fd.ROLL_L)
+            delta_mp = np.roll(delta_m, fd.ROLL_R)
+
             ### Face-centered density approximations obtained via parabolic interpolation
             ### Yields continuous approximation to density 
             #rho_i+1/2
-            ap2 = 7/12 * ( a + ap ) - 1/12 * ( app + am )
+            #ap2 = 7/12 * ( a + ap ) - 1/12 * ( app + am )
+            ap2 = a + 1/2 * ( ap - a ) - 1/6 * (delta_mp - delta_m)
             #rho_i-1/2
             am2 = np.roll(ap2, fd.ROLL_L) 
 
@@ -582,16 +614,44 @@ class PPMScheme(AdvectionScheme):
             a_R = ap2
             a_L = am2
 
-            ### Set coefficients of the interpolating parabola such that it does not overshoot
-            
-            # 1. If a is local extremum, set the interpolation function to be constant
-            cond = ((a_R - a)*(a - a_L) <= 0) # cond == True <-> a is local extremum
-            a_L[cond] = a_R[cond] = a[cond]
-            # 2. If a between a_R and a_L, but very close to them, the parabola might still overshoot
-            cond = + (a_R - a_L)**2 / 6 < (a_R - a_L) * (a - 1/2 * (a_L + a_R))
-            a_L[cond] = 3 * a[cond] - 2 * a_R[cond]
-            cond = - (a_R - a_L)**2 / 6 > (a_R - a_L) * (a - 1/2 * (a_L + a_R))
-            a_R[cond] = 3 * a[cond] - 2 * a_L[cond]
+            if self.fix1: 
+                ### Switch to different interpolation if we detect discontinuities in a 
+
+                # Second derivative as measure for discontinuities
+                d2_a  = 1/(6*dxi**2) * (ap - 2*a + am)
+                d2_ap = np.roll(d2_a, fd.ROLL_R)
+                d2_am = np.roll(d2_a, fd.ROLL_L)
+
+                eta_bar = - ( (d2_ap - d2_am ) / ( 2 * dxi) ) * ( 2*dxi**3 / (ap - am) )
+
+                cond1 = (-d2_ap * d2_am <= 0)
+                cond2 = (np.abs(ap - am) - epsilon * np.minimum(np.abs(ap), np.abs(am)) <= 0) 
+
+                eta_bar[cond1] = 0
+                eta_bar[cond2] = 0 
+
+                eta = np.maximum(0, np.minimum(eta1 * (eta_bar - eta2), 1))
+
+
+                a_Ld = am + 1/2 * delta_mm
+                a_Rd = ap - 1/2 * delta_mp
+
+                a_L = a_L * ( 1 - eta ) + a_Ld * eta
+                a_R = a_R * ( 1 - eta ) + a_Rd * eta
+
+            if self.fix2: 
+                ### Set coefficients of the interpolating parabola such that it does not overshoot
+                
+                # 1. If a is local extremum, set the interpolation function to be constant
+                cond = ((a_R - a)*(a - a_L) <= 0) # cond == True <-> a is local extremum
+                a_L[cond] = a[cond]
+                a_R[cond] = a[cond]
+                
+                # 2. If a between a_R and a_L, but very close to them, the parabola might still overshoot
+                cond = + (a_R - a_L)**2 / 6 < (a_R - a_L) * (a - 1/2 * (a_L + a_R))
+                a_L[cond] = 3 * a[cond] - 2 * a_R[cond]
+                cond = - (a_R - a_L)**2 / 6 > (a_R - a_L) * (a - 1/2 * (a_L + a_R))
+                a_R[cond] = 3 * a[cond] - 2 * a_L[cond]
 
 
             ### Free parameters in approximation polynomial 
@@ -622,22 +682,22 @@ class PPMScheme(AdvectionScheme):
                 plt.show()
 
             ### Enforce upwinding for density fluxes abar
-            abar_p2 = np.zeros(fp_R.shape)
+            a_bar_p2 = np.zeros(fp_R.shape)
 
-            abar_p2 = fp_L * ( v >= 0) + fp_R * ( v < 0 )
+            a_bar_p2 = fp_L * ( v >= 0) + fp_R * ( v < 0 )
 
-            abar_m2 = np.roll(abar_p2, fd.ROLL_L)
+            a_bar_m2 = np.roll(a_bar_p2, fd.ROLL_L)
 
 
             if self.debug:
                 plt.title("abar_p2")
-                plt.plot(abar_p2)
+                plt.plot(a_bar_p2)
                 plt.show()
                 plt.title("abar_m2")
-                plt.plot(abar_m2)
+                plt.plot(a_bar_m2)
                 plt.show()
             
-            ddensity = v / dxi * (abar_p2 - abar_m2)
+            ddensity = v / dxi * (a_bar_p2 - a_bar_m2)
 
         return -dt * np.array([ddensity, dphase])
 
