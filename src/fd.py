@@ -353,6 +353,14 @@ def getCenteredLaplacian(f, dx, axis):
     f_ddx = (np.roll(f, ROLL_R, axis=axis) - 2 * f + np.roll(f, ROLL_L, axis=axis) )/(dx**2)
     return f_ddx
 
+def getC2Gradient(f, dx, axis):
+    f_dx = 1/dx * ( - (1.0/12.0) * np.roll(f, 2*ROLL_R, axis) + (2.0/3.0) * np.roll(f, 1*ROLL_R, axis) - (2.0/3.0) * np.roll(f, 1*ROLL_L, axis) + (1.0/12.0) * np.roll(f, 2*ROLL_L, axis) )
+    return f_dx 
+
+def getC2Laplacian(f, dx, axis):
+    f_dx = 1/dx**2 * ( - (1.0/12.0) * np.roll(f, 2*ROLL_L, axis) + (4.0/3.0) * np.roll(f, 1*ROLL_L, axis) - (5.0/2.0) * f   + (4.0/3.0) * np.roll(f, 1*ROLL_R, axis) - (1.0/12.0) * np.roll(f, 2*ROLL_R, axis) )
+    return f_dx
+    
 def getQuantumPressure(rho, dx):
     logrho = np.log(rho)
     result = np.zeros(rho.shape)
@@ -416,6 +424,95 @@ def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False, eta = 
 
   # Construct tridiagonal matrix
   return A, b
+
+
+def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, fix1, fix2, fix3 = False): 
+    a = field 
+
+    #rho_i+1
+    ap  = np.roll(a,     ROLL_R, axis = axis) 
+    #rho_i+2
+    app = np.roll(a, 2 * ROLL_R, axis = axis) 
+    #rho_i-1
+    am  = np.roll(a,     ROLL_L, axis = axis)
+    #rho_i-2
+    amm = np.roll(a, 2 * ROLL_L, axis = axis)
+    
+
+    # Average slope of parabola
+    delta_a = 1/2 * (ap - am)
+    delta_m = np.minimum(np.abs(delta_a), 2 * np.minimum(np.abs(a - am), np.abs(ap - a))) * np.sign(delta_a)
+
+    cond          = ((ap - a) * ( a - am )) <= 0
+    delta_m[cond] = 0
+
+    delta_mm = np.roll(delta_m, ROLL_L, axis = axis)
+    delta_mp = np.roll(delta_m, ROLL_R, axis = axis)
+
+    ### Face-centered density approximations obtained via parabolic interpolation
+    ### Yields continuous approximation to density 
+    #rho_i+1/2
+    if fix3:
+        ap2 = 7/12 * ( a + ap ) - 1/12 * ( app + am )
+    else:
+        ap2 = a + 1/2 * ( ap - a ) - 1/6 * (delta_mp - delta_m)
+
+    #rho_i-1/2
+    am2 = np.roll(ap2, ROLL_L, axis = axis) 
+
+    ### Face-centered density approximations that take into account monotonicity
+    ### Potentially discontinuous, shock-resolving approximation to density
+    a_R = ap2
+    a_L = am2
+
+    if fix1: 
+        ### Switch to different interpolation if we detect discontinuities in a 
+
+        # Second derivative as measure for discontinuities
+        d2_a  = 1/(6*dxi**2) * (ap - 2*a + am)
+        d2_ap = np.roll(d2_a, ROLL_R, axis = axis)
+        d2_am = np.roll(d2_a, ROLL_L, axis = axis)
+
+        eta_bar = - ( (d2_ap - d2_am ) / ( 2 * dxi) ) * ( 2*dxi**3 / (ap - am) )
+
+        cond1 = (-d2_ap * d2_am <= 0)
+        cond2 = (np.abs(ap - am) - epsilon * np.minimum(np.abs(ap), np.abs(am)) <= 0) 
+
+        eta_bar[cond1] = 0
+        eta_bar[cond2] = 0 
+
+        eta = np.maximum(0, np.minimum(eta1 * (eta_bar - eta2), 1))
+
+
+        a_Ld = am + 1/2 * delta_mm
+        a_Rd = ap - 1/2 * delta_mp
+
+        a_L = a_L * ( 1 - eta ) + a_Ld * eta
+        a_R = a_R * ( 1 - eta ) + a_Rd * eta
+
+    if fix2: 
+        ### Set coefficients of the interpolating parabola such that it does not overshoot
+        
+        # 1. If a is local extremum, set the interpolation function to be constant
+        cond = ((a_R - a)*(a - a_L) <= 0) # cond == True <-> a is local extremum
+        a_L[cond] = a[cond]
+        a_R[cond] = a[cond]
+        
+        # 2. If a between a_R and a_L, but very close to them, the parabola might still overshoot
+        cond = + (a_R - a_L)**2 / 6 < (a_R - a_L) * (a - 1/2 * (a_L + a_R))
+        a_L[cond] = 3 * a[cond] - 2 * a_R[cond]
+        cond = - (a_R - a_L)**2 / 6 > (a_R - a_L) * (a - 1/2 * (a_L + a_R))
+        a_R[cond] = 3 * a[cond] - 2 * a_L[cond]
+
+
+        #make sure that we didn't over or undersoot -- this may not
+        #be needed, but is discussed in Colella & Sekora (2008)
+        a_R = np.maximum(a_R, np.minimum(a, ap))
+        a_R = np.minimum(a_R, np.maximum(a, ap))
+        a_L = np.maximum(a_L, np.minimum(am, a))
+        a_L = np.minimum(a_L, np.maximum(am, a))
+
+    return a_L, a_R
 
 
 def get_norm(rho, dx):
