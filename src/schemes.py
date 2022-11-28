@@ -325,6 +325,8 @@ class SchroedingerScheme(Scheme):
         else:
             self.workers = None
 
+        self.computePotential(np.abs(self.psi)**2)
+
     def setExternalPotentialFunction(self, potentialFunction):
         self.externalPotential = potentialFunction
 
