@@ -109,10 +109,12 @@ class UpwindScheme(PhaseScheme):
 
             #Phase
             pc  = phase
-            pp = np.roll(phase, fd.ROLL_R, axis = i)
-            pm = np.roll(phase, fd.ROLL_L, axis = i)
-
-
+            pp  = np.roll(phase,     fd.ROLL_R, axis = i)
+            ppp = np.roll(phase, 2 * fd.ROLL_R, axis = i)
+            pm  = np.roll(phase,     fd.ROLL_L, axis = i)
+            pmm = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+            p2m = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+            
             vp = (pp - pc)/dx 
             vm = np.roll(vp, fd.ROLL_L, axis = i)
 
@@ -154,6 +156,8 @@ class UpwindScheme(PhaseScheme):
             ### COMPUTE OSHER-SETHIAN-FLUX ###
 
             if self.turnOffConvection is False:
+                vp = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dx**1)
+                vm = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dx**1)
                 #Compute Osher-Sethian flux for phase
                 dphase += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
 
@@ -175,9 +179,12 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
     for i in range(density.ndim):
         ### PHASE ###
         pc  = phase
-        pp  = np.roll(phase, fd.ROLL_R, axis = i)
-        pm  = np.roll(phase, fd.ROLL_L, axis = i)
-        p2m = np.roll(pc, 2 * fd.ROLL_L, axis = i)
+        pp  = np.roll(phase,     fd.ROLL_R, axis = i)
+        ppp = np.roll(phase, 2 * fd.ROLL_R, axis = i)
+        pm  = np.roll(phase,     fd.ROLL_L, axis = i)
+        pmm = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+        p2m = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+            
 
         ### DENSITY ###
         rc  = density
@@ -234,7 +241,7 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
 class HOUpwindScheme(PhaseScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-        self.limitHJ = config["limitHJ"]
+        self.limitHJ = False
 
     def getUpdatedFields(self, dt, fields):
         ddensity, dphase, vmax = getHODrift(fields[0], fields[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion, friction=self.friction, limiter = self.limiter, limitHJ = self.limitHJ)
@@ -582,6 +589,8 @@ class PPMScheme(PhaseScheme):
         self.densityLimiter  = config["densityLimiter"]
         self.velocityLimiter = config["velocityLimiter"]
 
+        print(f"Limiters: density = {self.densityLimiter} velocity = {self.velocityLimiter}")
+
         self.vmax = 0
         self.amax = 0
         self.outputTimestep = False 
@@ -591,7 +600,7 @@ class PPMScheme(PhaseScheme):
 
     def getUpdatedFields(self, dt, fields):
         if self.outputTimestep:
-            print(f"dt = {dt} min density = {np.min(self.fields[0])} max density = {np.max(self.fields[0])}")
+            print(f"dt = [dt] min density = [np.min(self.fields[0])] max density = [np.max(self.fields[0])]")
 
         density, phase = fields
 
@@ -604,6 +613,9 @@ class PPMScheme(PhaseScheme):
         eta1    = self.eta1
         eta2    = self.eta2
         epsilon = self.epsilon 
+
+        self.vmax = 0
+        self.amax = 0
 
 
         sr = 0.5 * np.log(density)
@@ -621,9 +633,26 @@ class PPMScheme(PhaseScheme):
             pmmm = np.roll(phase, 3 * fd.ROLL_L, axis = i)
             pmmmm = np.roll(phase, 4 * fd.ROLL_L, axis = i)
 
-            v = fd.getC2Gradient(phase, dxi, axis = i) 
 
+            
             ### Face-centered velocities 
+            #vp2 = (pp - pc)/dxi
+            #vm2 = np.roll(vp2, fd.ROLL_L, axis = i)
+            #v = (pp - pm) / (2*dxi)
+            v = fd.getC2Gradient(phase, dxi, axis = i) #fd.getDerivative(phase, dxi, self.c1_stencil, self.c1_coeff, axis = i, debug=True)
+ 
+            #rho_i+1
+            #vp  = np.roll(v,     fd.ROLL_R, axis = i) 
+            ##rho_i+2
+            #vpp = np.roll(v, 2 * fd.ROLL_R, axis = i) 
+            ##rho_i-1
+            #vm  = np.roll(v,     fd.ROLL_L, axis = i)
+            ##rho_i-2
+            #vmm = np.roll(v, 2 * fd.ROLL_L, axis = i)
+        #
+            #vp2 = 1/(4*36*dxi) * (-pmmm+15*pmm-49*pm-65*pc+65*pp+49*ppp-15*pppp+ppppp)#(75*pmmm-1029*pmm+8575*pm-128625*pc+128625*pp-8575*ppp+1029*pppp-75*ppppp)/(107520*1.0*dxi**1) #7/12 * ( v + vp ) - 1/12 * ( vpp + vm )
+            #vm2 = np.roll(vp2, fd.ROLL_L)
+
             if (self.velocityLimiter == 0):
                 vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, False, True)
             elif (self.velocityLimiter == 1):
@@ -631,11 +660,52 @@ class PPMScheme(PhaseScheme):
             else: 
                 vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, True, False)
 
+            #vp2 = (1*pm-27*pc+27*pp-1*ppp)/(24*1.0*dxi**1)
+            #vm2 = np.roll(vp2, fd.ROLL_L, axis = i)
+            #vp2 = (-9*pmm+125*pm-2250*pc+2250*pp-125*ppp+9*pppp)/(1920*1.0*dxi**1)
+            #vm2 = np.roll(vp2, fd.ROLL_L, axis = i)
+
+            #vp2 = (-3/2 * pc + 2 * pp - 1/2 * ppp)/dxi 
+            #vm2 = ( 3/2 * pc - 2 * pm + 1/2 * pmm)/dxi
+            #vp2 = fd.getDerivative(phase, dxi, self.c1_stencil, self.c1_coeff, axis = i)
+            #vm2 = fd.getDerivative(phase, dxi, self.c1_stencil, self.c1_coeff, axis = i)
+            #vp2 = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dxi**1)
+            #vm2 = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dxi**1)
+            ##
+            #d_p =                   p_R - p_L 
+            #p_6 = 6 * (pc - 1/2 * ( p_R + p_L))
+###
+            #vm2 = 1/dxi * ( d_p + p_6 )
+            #vp2 = 1/dxi * ( d_p - p_6 )
+            #vp2 = np.roll(vm2, fd.ROLL_R, axis=i)
 
 
+            #vp2 = fd.getDerivative(phase, dxi, self.f1_stencil, self.f1_coeff, axis = i)
+            #vm2 = fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
+            #vm2 = np.roll(vp2, fd.ROLL_L, axis=i)#fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
+
+            #plt.plot("Forward velocity")
+            #plt.plot(vp2, label="first order")
+            #plt.plot(vp22, label="2nd order")
+            #plt.legend()
+            #plt.show()
+            #plt.plot("backward velocity")
+            #plt.plot(vm2, label="first order")
+            #plt.plot(vm22, label="2nd order")
+            #plt.legend()
+            #plt.show()
+            #plt.plot("backward velocity with roll")
+            #plt.plot(vm2, label="first order")
+            #plt.plot(np.roll(vp22, fd.ROLL_L, axis=i), label="2nd order")
+            #plt.legend()
+            #plt.show()
+            #self.vmax = np.maximum(self.vmax, np.max(np.abs(vp2)))
+            
             ### Density cell-averages
             #rho_i
             a   = density 
+
+
             if (self.densityLimiter == 0):
                 a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, False, True)
             elif (self.densityLimiter == 1):
@@ -643,38 +713,55 @@ class PPMScheme(PhaseScheme):
             else: 
                 a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, True, False)
 
-
             ### Free parameters in approximation polynomial 
             ### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
             ### where x = (xi - xi_p)/dxi
             d_a =                  a_R - a_L 
             a_6 = 6 * (a - 1/2 * ( a_R + a_L))
 
-            a_Lp = np.roll(a_L, fd.ROLL_R) 
-            d_ap = np.roll(d_a, fd.ROLL_R)
-            a_6p = np.roll(a_6, fd.ROLL_R)
+            a_Lp = np.roll(a_L, fd.ROLL_R, axis=i) 
+            d_ap = np.roll(d_a, fd.ROLL_R, axis=i)
+            a_6p = np.roll(a_6, fd.ROLL_R, axis=i)
+
+            a_Rm = np.roll(a_R, fd.ROLL_L, axis=i) 
+            a_Lm = np.roll(a_L, fd.ROLL_L, axis=i) 
+            d_am = np.roll(d_a, fd.ROLL_L, axis=i)
+            a_6m = np.roll(a_6, fd.ROLL_L, axis=i)
 
             ### Compute density fluxes at i+1/2 as seen by cells centered at i (fp_R) and i + 1 (fp_L)
             y    =  vp2 * dt
             x    =  y / dxi
-            fp_L = a_R  - x/2 * (d_a  - ( 1 - 2/3 * x) * a_6 )
+            fp_L = a_R  - x/2 * (d_a  - ( 1 - 2/3 * x) * a_6  )
 
             y    = -vp2 * dt
             x    =  y / dxi
-            fp_R = a_Lp + x/2 * (d_ap + ( 1 - 2/3 * x) * a_6p)
+            fp_R = a_Lp + x/2 * (d_ap + ( 1 - 2/3 * x) * a_6p )
 
+
+            y    =  vm2 * dt
+            x    =  y / dxi
+            fm_L = a_Rm - x/2 * (d_am  - ( 1 - 2/3 * x) * a_6m)
+
+            y    = -vm2 * dt
+            x    =  y / dxi
+            fm_R = a_L  + x/2 * (d_a   + ( 1 - 2/3 * x) * a_6 )
 
             ### Enforce upwinding for density fluxes abar
             a_bar_p2 = fp_L * vp2 * ( vp2 >= 0) + fp_R * vp2 * ( vp2 < 0 )
-            a_bar_m2 = np.roll(a_bar_p2, fd.ROLL_L)
+            a_bar_m2 = fm_L * vm2 * ( vm2 >= 0) + fm_R * vm2 * ( vm2 < 0 )
 
             ddensity += 1 / dxi * (a_bar_p2 - a_bar_m2)
 
             #v_i-1/2
             #v = fd.getDerivative(phase, dxi, self.c1_stencil, self.c1_coeff, axis = i)
-            
+            #
             #vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, self.fix1, self.fix2)
+            #vp2 = fd.getDerivative(phase, dxi, self.f1_stencil, self.f1_coeff, axis = i)
+            #vm2 = fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
+            vp2 = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dxi**1)
+            vm2 = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dxi**1)
 
+            
             #Density 
             r  = density
             rf = np.roll(density, fd.ROLL_R, axis = i)
@@ -685,21 +772,18 @@ class PPMScheme(PhaseScheme):
             srm = np.roll(sr, fd.ROLL_L, axis = i)
 
             ### COMPUTE QUANTUM PRESSURE ###
-            if self.turnOffDiffusion is False:
-               dphase -= 0.5/dxi**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
-            ### COMPUTE QUANTUM PRESSURE ###
             #if self.turnOffDiffusion is False:
-            #    dphase -= 0.5 * (
-            #        fd.getDerivative(sr, dxi, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1)**2 
-            #        + fd.getDerivative(sr, dxi, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2)
-            #        )
-#
+            #    dphase -= 0.5/dxi**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
+            
+            dphase -= 0.5 * (
+                  fd.getC2Gradient(sr, dxi, axis = i)**2 
+                + fd.getC2Laplacian(sr, dxi, axis = i)
+                )
 
-            vp2 = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dx**1)
-            vm2 = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dx**1)
-            #vp2 = fd.getDerivative(phase, dxi, self.f1_stencil, self.f1_coeff, axis = i)
-            #vm2 = fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
-
+            #dphase -= 0.5 * (
+            #      fd.getC2(sr, dxi, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1, debug=True)**2 
+            #    + fd.getDerivative(sr, dxi, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2, debug=True)
+            #    )
             ### COMPUTE OSHER-SETHIAN-FLUX ###
 
             if self.turnOffConvection is False:
