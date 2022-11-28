@@ -153,52 +153,6 @@ def infiniteWell1D(xx, dx, t, m = 1, hbar = 1,  n = 0, x0 = 0, L = 1, xl=0, xr=1
 def wellPotential1D(xx, m, xl = 0, xr = 1, V = 1e10):
     return (xx < xl) * V + (xx > xr) * V
 
-def cosmological1D(x, dx, t, m = 1, hbar = 1, Lx=1, N=3, eps = 5e-3):
-    psi = 1 + 0j
-    for n in range(N):
-        kx = 2 * np.pi * (1 + n) / Lx
-        psi += eps * coefficients_1d[0, n] * np.cos(kx * x) * np.exp(-1j * t * hbar/m * kx ** 2 / 2)
-        psi += eps * coefficients_1d[1, n] * np.sin(kx * x) * np.exp(-1j * t * hbar/m * kx ** 2 / 2)
-
-    return normalise(psi)
-
-def cosmological2D(x, y, dx, t, m = 1, hbar = 1, Lx=25, Ly=25, N=10, eps=5e-3):
-    psi = np.ones(x.shape, dtype=np.complex)
-    for n in range(N):
-        for m in range(N):
-            kx = 2 * np.pi * (1 + n) / Lx
-            ky = 2 * np.pi * (1 + m) / Ly
-            psi += (
-                eps
-                * coefficients_2d[0, n, m]
-                * np.cos(kx * x)
-                * np.cos(ky * y)
-                * np.exp(-1j * t * (kx ** 2 + ky ** 2) / 2)
-            )
-            psi += (
-                eps
-                * coefficients_2d[1, n, m]
-                * np.sin(kx * x)
-                * np.cos(ky * y)
-                * np.exp(-1j * t * (kx ** 2 + ky ** 2) / 2)
-            )
-            psi += (
-                eps
-                * coefficients_2d[2, n, m]
-                * np.cos(kx * x)
-                * np.sin(ky * y)
-                * np.exp(-1j * t * (kx ** 2 + ky ** 2) / 2)
-            )
-            psi += (
-                eps
-                * coefficients_2d[3, n, m]
-                * np.sin(kx * x)
-                * np.sin(ky * y)
-                * np.exp(-1j * t * (kx ** 2 + ky ** 2) / 2)
-            )
-
-    return normalise(psi)
-
 # Generate analytical solution for the 1D free Schrödinger equation
 # Li test 1
 def generate2DGaussian(x0, y0, xx, yy, t, m = 1, hbar = 1,  alpha=1.0 / 10):
@@ -243,7 +197,6 @@ def twoWavePackets3D(x, y, z, dx, t, m = 1, hbar = 1, x0 = 3, x1 = 7, alpha = 1.
 
 
 
-@njit
 def cosmological3D(x, y, z, dx, t, m = 1, hbar = 1, Lx=1, Ly=1, Lz=1, N=10, eps = 5e-3):
     psi = np.ones(x.shape, dtype=np.complex)
     for n in range(N):
@@ -268,9 +221,17 @@ def cosmological3D(x, y, z, dx, t, m = 1, hbar = 1, Lx=1, Ly=1, Lz=1, N=10, eps 
                   + coefficients_3d[5, n, m, l] * d1 * d5 * d6  \
                   + coefficients_3d[6, n, m, l] * d4 * d2 * d6  \
                   + coefficients_3d[7, n, m, l] * d4 * d5 * d6
-            )
+            )         
 
             dpsi = dpsi * np.exp(-1j * t * (kx ** 2 + ky ** 2 + kz ** 2) / 2)
             psi  = psi + dpsi
 
     return normalise(psi)
+
+
+def cosmological1D(x, dx, t, m = 1, hbar = 1, Lx=1, N=10, eps = 5e-3):
+    return cosmological3D(x, 0, 0, dx, t, m, hbar, Lx, Lx, Lx, N, eps)
+
+
+def cosmological2D(x, y, dx, t, m = 1, hbar = 1, Lx=1, Ly=1, N=10, eps = 5e-3):
+    return cosmological3D(x, y, 0, dx, t, m, hbar, Lx, Ly, Lx, N, eps)
