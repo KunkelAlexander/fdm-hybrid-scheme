@@ -100,6 +100,13 @@ def hoUpwindWithoutConvectionConfig(c):
     c["timeOrder"] = 2
     c["turnOffConvection"] = True 
 
+
+def ppmConfig(c):
+    c["stencilOrder"] = 3
+    c["timeOrder"]    = 3
+    c["densityLimiter"] = 2
+    c["velocityLimiter"] = 0
+
 def lwUpwindConfig(c):
     c["stencilOrder"] = 2
     c["timeOrder"] = 1
@@ -358,8 +365,8 @@ def perturbationWave2DConfig(c):
 def cosmo2DConfig(c):
     c["dimension"] = 2
     c["usePeriodicBC"] = True
-    c["domainSize"] = 4
-    c["resolution"] = 64
+    c["domainSize"] = 256
+    c["resolution"] = 128
     c["tEnd"] = 1.5
     c["slowDown"] = 10
     c["plotPhaseMod2"] = False
@@ -450,16 +457,17 @@ test_list = {
     "infinite well": [tests.infiniteWell1D, infiniteWellConfig, None],
     "gaussian wave packet": [lambda x, dx, t, m, hbar: tests.li1(x, dx, t, m, hbar, x0=2), li1Config, None],
     "periodic gaussian wave packet": [lambda x, dx, t, m, hbar: tests.periodicLi1(x, dx, t, m, hbar, x0=2, L = 4), periodicLi1Config, None],
+    "gaussian wave packet with background": [lambda x, dx, t, m=1, hbar=1: tests.periodicLi1(x, dx, t, m, hbar, x0=2) + 1, periodicLi1Config, None],
     "hubble expansion": [lambda x, dx, t, m, hbar: tests.li1(x, dx, t, m, hbar, x0=2, eps = 1e-4), li1Config, None],
     "wide hubble expansion": [lambda x, dx, t, m, hbar: tests.li1(x, dx, t, m, hbar, x0=5, eps = 1e-4), hubbleExpansionConfig, None],
     "quasi-shock": [lambda x, dx, t, m, hbar: tests.li2(x, dx, t, m, hbar, x0 = 10), li2Config, None],
     "wave packet collision": [tests.li3, li3Config, None],
     "travelling wave packet": [tests.travellingWavePacket, travellingWavePacketConfig, None],
     "perturbation wave": [tests.cosmological1D, perturbationWaveConfig, None],
-    "accuracy test 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=1, N = 1), accuracyTest1DConfig, None],
+    "accuracy test 1D": [lambda xx, dx, t, m = 1, hbar = 1: tests.cosmological1D(xx, dx, t, m, hbar, eps=1e-2, Lx=1, N = 1), accuracyTest1DConfig, None],
     "cosmo 1D": [lambda xx, dx, t, m, hbar: tests.cosmological1D(xx, dx, t, m, hbar, eps=5e-3, Lx=10, N=10), cosmoConfig, None],
     "perturbation wave 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps=5e-3), perturbationWave2DConfig, None],
-    "cosmo 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 4, Ly = 4, N = 10, eps= 5e-3), cosmo2DConfig, None],
+    "cosmo 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 256, Ly = 256, N = 1, eps= 1e-2), cosmo2DConfig, None],
     "cosmo 2D test": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DTestConfig, None],
     "cosmo 2D expansion": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 25, Ly = 25, N = 5, eps= 5e-3), cosmo2DExpansionConfig, None],
     "accuracy test 2D": [lambda x, y, dx, t, m, hbar: tests.cosmological2D(x, y, dx, t, m, hbar, Lx = 1, Ly = 1, N = 1, eps= 5e-3), accuracyTest2DConfig, None],
@@ -519,6 +527,7 @@ scheme_list = {
     "phase-ho-upwind without diffusion": [phase_schemes.HOUpwindScheme, hoUpwindWithoutDiffusionConfig],
     "phase-ho-upwind without convection": [phase_schemes.HOUpwindScheme, hoUpwindWithoutConvectionConfig],
     "phase-lw-upwind": [phase_schemes.LaxWendroffUpwindScheme, lwUpwindConfig],
+    "phase-ppm": [phase_schemes.PPMScheme, ppmConfig],
     "phase-ftcs-convective": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveConfig],
     "phase-ftcs-convective without diffusion": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveWithoutDiffusionConfig],
     "phase-ftcs-convective without convection": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveWithoutDiffusionConfig],

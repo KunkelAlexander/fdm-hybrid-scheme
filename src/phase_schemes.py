@@ -579,8 +579,8 @@ class PPMScheme(PhaseScheme):
         self.eta2 = 0.05
         self.epsilon = 0.01 
 
-        self.fix1 = config["fix1"]
-        self.fix2 = config["fix2"]
+        self.densityLimiter  = config["densityLimiter"]
+        self.velocityLimiter = config["velocityLimiter"]
 
         self.vmax = 0
         self.amax = 0
