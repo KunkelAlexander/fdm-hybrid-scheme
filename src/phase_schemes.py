@@ -75,6 +75,8 @@ class PhaseScheme(schemes.SchroedingerScheme):
             t4 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
         else:
             t4 = 1e4
+
+        #print(f"t_parabolic = {t1} t_velocity = {t2} t_acceleration = {t3} t_gravity = {t4}")
         
         return np.min([t1, t2, t3, t4])
         
@@ -556,3 +558,152 @@ class ConvectiveScheme(ConvectiveScheme):
         dfields = -np.array([dsr, dsi])
 
         return self.eta * dfields * dt
+
+
+
+### Implement piecewise parabolic method for advection scheme (Colella & Woodward, 1984 )
+### ( https://doi.org/10.1016/0021-9991(84)90143-8 )
+###
+### Approximate density profile rho(xi) in each zone as 
+### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
+###       where x = (xi - xi_p)/dxi
+###
+### 
+
+class PPMScheme(PhaseScheme):
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+        
+        self.eta1 = 20
+        self.eta2 = 0.05
+        self.epsilon = 0.01 
+
+        self.fix1 = config["fix1"]
+        self.fix2 = config["fix2"]
+
+        self.vmax = 0
+        self.amax = 0
+        self.outputTimestep = False 
+
+    def getName(self):
+        return "ppm"
+
+    def getUpdatedFields(self, dt, fields):
+        if self.outputTimestep:
+            print(f"dt = {dt} min density = {np.min(self.fields[0])} max density = {np.max(self.fields[0])}")
+
+        density, phase = fields
+
+        ddensity = np.zeros(density.shape)
+        dphase   = np.zeros(phase.shape)
+
+        sr = 0.5 * np.log(density)
+        
+        dxi     = self.dx
+        eta1    = self.eta1
+        eta2    = self.eta2
+        epsilon = self.epsilon 
+
+
+        sr = 0.5 * np.log(density)
+
+        for i in range(self.dimension):
+
+            ### Cell-centered phase
+            pc   = phase
+            pp   = np.roll(phase,     fd.ROLL_R, axis = i)
+            ppp  = np.roll(phase, 2 * fd.ROLL_R, axis = i)
+            pppp = np.roll(phase, 3 * fd.ROLL_R, axis = i)
+            ppppp = np.roll(phase, 4 * fd.ROLL_R, axis = i)
+            pm   = np.roll(phase,     fd.ROLL_L, axis = i)
+            pmm  = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+            pmmm = np.roll(phase, 3 * fd.ROLL_L, axis = i)
+            pmmmm = np.roll(phase, 4 * fd.ROLL_L, axis = i)
+
+            v = fd.getC2Gradient(phase, dxi, axis = i) 
+
+            ### Face-centered velocities 
+            if (self.velocityLimiter == 0):
+                vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, False, True)
+            elif (self.velocityLimiter == 1):
+                vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, False, False)
+            else: 
+                vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, True, False)
+
+
+
+            ### Density cell-averages
+            #rho_i
+            a   = density 
+            if (self.densityLimiter == 0):
+                a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, False, True)
+            elif (self.densityLimiter == 1):
+                a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, False, False)
+            else: 
+                a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, True, False)
+
+
+            ### Free parameters in approximation polynomial 
+            ### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
+            ### where x = (xi - xi_p)/dxi
+            d_a =                  a_R - a_L 
+            a_6 = 6 * (a - 1/2 * ( a_R + a_L))
+
+            a_Lp = np.roll(a_L, fd.ROLL_R) 
+            d_ap = np.roll(d_a, fd.ROLL_R)
+            a_6p = np.roll(a_6, fd.ROLL_R)
+
+            ### Compute density fluxes at i+1/2 as seen by cells centered at i (fp_R) and i + 1 (fp_L)
+            y    =  vp2 * dt
+            x    =  y / dxi
+            fp_L = a_R  - x/2 * (d_a  - ( 1 - 2/3 * x) * a_6 )
+
+            y    = -vp2 * dt
+            x    =  y / dxi
+            fp_R = a_Lp + x/2 * (d_ap + ( 1 - 2/3 * x) * a_6p)
+
+
+            ### Enforce upwinding for density fluxes abar
+            a_bar_p2 = fp_L * vp2 * ( vp2 >= 0) + fp_R * vp2 * ( vp2 < 0 )
+            a_bar_m2 = np.roll(a_bar_p2, fd.ROLL_L)
+
+            ddensity += 1 / dxi * (a_bar_p2 - a_bar_m2)
+
+            #v_i-1/2
+            #v = fd.getDerivative(phase, dxi, self.c1_stencil, self.c1_coeff, axis = i)
+            
+            #vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, self.fix1, self.fix2)
+
+            #Density 
+            r  = density
+            rf = np.roll(density, fd.ROLL_R, axis = i)
+            rb = np.roll(density, fd.ROLL_L, axis = i)
+
+            #Logarithm of density for quantum pressure
+            srp = np.roll(sr, fd.ROLL_R, axis = i)
+            srm = np.roll(sr, fd.ROLL_L, axis = i)
+
+            ### COMPUTE QUANTUM PRESSURE ###
+            if self.turnOffDiffusion is False:
+               dphase -= 0.5/dxi**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
+            ### COMPUTE QUANTUM PRESSURE ###
+            #if self.turnOffDiffusion is False:
+            #    dphase -= 0.5 * (
+            #        fd.getDerivative(sr, dxi, self.c1_stencil, self.c1_coeff, axis = i, derivative_order=1)**2 
+            #        + fd.getDerivative(sr, dxi, self.c2_stencil, self.c2_coeff, axis = i, derivative_order=2)
+            #        )
+#
+
+            vp2 = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dx**1)
+            vm2 = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dx**1)
+            #vp2 = fd.getDerivative(phase, dxi, self.f1_stencil, self.f1_coeff, axis = i)
+            #vm2 = fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
+
+            ### COMPUTE OSHER-SETHIAN-FLUX ###
+
+            if self.turnOffConvection is False:
+                #Compute Osher-Sethian flux for phase
+                dphase += (np.minimum(vp2, 0)**2 + np.maximum(vm2, 0)**2)/2
+
+        return -dt * self.eta * np.array([ddensity, dphase])
