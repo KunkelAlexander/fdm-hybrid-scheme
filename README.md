@@ -5,7 +5,7 @@ It implements a wave solver (higher order FTCS) as well as a solver for the Cont
 ## Features
 - Wave schemes (Spectral, FTCS, Crank-Nicolson)
 - Fluid scheme (MUSCL-Hancock)
-- Phase schemes (First-order and second order)
+- Phase schemes (First-order, second-order (MUSCL), third-order (PPM))
 - Poisson solver (Explicit and implicit with finite differences, Spectral)
 - CPU parallelisation for hybrid solver
 
