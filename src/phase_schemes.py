@@ -76,7 +76,7 @@ class PhaseScheme(schemes.SchroedingerScheme):
         else:
             t4 = 1e4
 
-        #print(f"t_parabolic = {t1} t_velocity = {t2} t_acceleration = {t3} t_gravity = {t4}")
+        print(f"t = {self.t} t_parabolic = {t1} t_velocity = {t2} t_acceleration = {t3} t_gravity = {t4}")
         
         return np.min([t1, t2, t3, t4])
         
@@ -136,18 +136,6 @@ class UpwindScheme(PhaseScheme):
             fm = np.maximum(vm, 0) * rb + np.minimum(vm, 0) * r
             
             ddensity += (fp - fm) / dx
-
-            if self.debug:
-                D_sr      =  0.5/dx
-                D_si      = -0.5/dx 
-                F_sr      =  (srp - srm) / (2*dx)
-                F_si      =  (vp + vm) /2
-                peclet_sr =  F_sr /  D_sr
-                peclet_si =  F_si /  D_si
-                
-                if (np.max(np.abs(peclet_sr)) > 2 or np.max(np.abs(peclet_si)) > 2):
-                    print(f"Peclet S_r: max = {np.max(peclet_sr)} min = {np.min(peclet_sr)}, Peclet S_i: max = {np.max(peclet_si)} min = max = {np.min(peclet_si)}")
-
 
             ### COMPUTE QUANTUM PRESSURE ###
             if self.turnOffDiffusion is False:
@@ -622,17 +610,6 @@ class PPMScheme(PhaseScheme):
 
         for i in range(self.dimension):
 
-            ### Cell-centered phase
-            pc   = phase
-            pp   = np.roll(phase,     fd.ROLL_R, axis = i)
-            ppp  = np.roll(phase, 2 * fd.ROLL_R, axis = i)
-            pppp = np.roll(phase, 3 * fd.ROLL_R, axis = i)
-            ppppp = np.roll(phase, 4 * fd.ROLL_R, axis = i)
-            pm   = np.roll(phase,     fd.ROLL_L, axis = i)
-            pmm  = np.roll(phase, 2 * fd.ROLL_L, axis = i)
-            pmmm = np.roll(phase, 3 * fd.ROLL_L, axis = i)
-            pmmmm = np.roll(phase, 4 * fd.ROLL_L, axis = i)
-
 
             
             ### Face-centered velocities 
@@ -653,12 +630,7 @@ class PPMScheme(PhaseScheme):
             #vp2 = 1/(4*36*dxi) * (-pmmm+15*pmm-49*pm-65*pc+65*pp+49*ppp-15*pppp+ppppp)#(75*pmmm-1029*pmm+8575*pm-128625*pc+128625*pp-8575*ppp+1029*pppp-75*ppppp)/(107520*1.0*dxi**1) #7/12 * ( v + vp ) - 1/12 * ( vpp + vm )
             #vm2 = np.roll(vp2, fd.ROLL_L)
 
-            if (self.velocityLimiter == 0):
-                vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, False, True)
-            elif (self.velocityLimiter == 1):
-                vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, False, False)
-            else: 
-                vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, False, True, False)
+            vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, self.velocityLimiter)
 
             #vp2 = (1*pm-27*pc+27*pp-1*ppp)/(24*1.0*dxi**1)
             #vm2 = np.roll(vp2, fd.ROLL_L, axis = i)
@@ -701,56 +673,12 @@ class PPMScheme(PhaseScheme):
             #plt.show()
             #self.vmax = np.maximum(self.vmax, np.max(np.abs(vp2)))
             
-            ### Density cell-averages
-            #rho_i
-            a   = density 
+            density_L, density_R = fd.computePPMInterpolation(density, dxi, i, eta1, eta2, epsilon, self.densityLimiter)
+            density_L, density_R = fd.limitPPMGradients(density, density_L, density_R, dxi, axis = i, limiter = self.densityLimiter)
+            fm = fd.computePPMFlux(density, density_L, density_R, vm2, dxi, dt, axis = i)
+            fp = np.roll(fm, fd.ROLL_R, axis=i)
 
-
-            if (self.densityLimiter == 0):
-                a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, False, True)
-            elif (self.densityLimiter == 1):
-                a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, False, False)
-            else: 
-                a_L, a_R = fd.computePPMInterpolation(a, dxi, i, eta1, eta2, epsilon, False, True, False)
-
-            ### Free parameters in approximation polynomial 
-            ### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
-            ### where x = (xi - xi_p)/dxi
-            d_a =                  a_R - a_L 
-            a_6 = 6 * (a - 1/2 * ( a_R + a_L))
-
-            a_Lp = np.roll(a_L, fd.ROLL_R, axis=i) 
-            d_ap = np.roll(d_a, fd.ROLL_R, axis=i)
-            a_6p = np.roll(a_6, fd.ROLL_R, axis=i)
-
-            a_Rm = np.roll(a_R, fd.ROLL_L, axis=i) 
-            a_Lm = np.roll(a_L, fd.ROLL_L, axis=i) 
-            d_am = np.roll(d_a, fd.ROLL_L, axis=i)
-            a_6m = np.roll(a_6, fd.ROLL_L, axis=i)
-
-            ### Compute density fluxes at i+1/2 as seen by cells centered at i (fp_R) and i + 1 (fp_L)
-            y    =  vp2 * dt
-            x    =  y / dxi
-            fp_L = a_R  - x/2 * (d_a  - ( 1 - 2/3 * x) * a_6  )
-
-            y    = -vp2 * dt
-            x    =  y / dxi
-            fp_R = a_Lp + x/2 * (d_ap + ( 1 - 2/3 * x) * a_6p )
-
-
-            y    =  vm2 * dt
-            x    =  y / dxi
-            fm_L = a_Rm - x/2 * (d_am  - ( 1 - 2/3 * x) * a_6m)
-
-            y    = -vm2 * dt
-            x    =  y / dxi
-            fm_R = a_L  + x/2 * (d_a   + ( 1 - 2/3 * x) * a_6 )
-
-            ### Enforce upwinding for density fluxes abar
-            a_bar_p2 = fp_L * vp2 * ( vp2 >= 0) + fp_R * vp2 * ( vp2 < 0 )
-            a_bar_m2 = fm_L * vm2 * ( vm2 >= 0) + fm_R * vm2 * ( vm2 < 0 )
-
-            ddensity += 1 / dxi * (a_bar_p2 - a_bar_m2)
+            ddensity += 1 / dxi * (fp - fm)
 
             #v_i-1/2
             #v = fd.getDerivative(phase, dxi, self.c1_stencil, self.c1_coeff, axis = i)
@@ -758,18 +686,16 @@ class PPMScheme(PhaseScheme):
             #vm2, vp2 = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, self.fix1, self.fix2)
             #vp2 = fd.getDerivative(phase, dxi, self.f1_stencil, self.f1_coeff, axis = i)
             #vm2 = fd.getDerivative(phase, dxi, self.b1_stencil, self.b1_coeff, axis = i)
-            vp2 = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dxi**1)
-            vm2 = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dxi**1)
 
             
             #Density 
-            r  = density
-            rf = np.roll(density, fd.ROLL_R, axis = i)
-            rb = np.roll(density, fd.ROLL_L, axis = i)
-
-            #Logarithm of density for quantum pressure
-            srp = np.roll(sr, fd.ROLL_R, axis = i)
-            srm = np.roll(sr, fd.ROLL_L, axis = i)
+            #r  = density
+            #rf = np.roll(density, fd.ROLL_R, axis = i)
+            #rb = np.roll(density, fd.ROLL_L, axis = i)
+#
+            ##Logarithm of density for quantum pressure
+            #srp = np.roll(sr, fd.ROLL_R, axis = i)
+            #srm = np.roll(sr, fd.ROLL_L, axis = i)
 
             ### COMPUTE QUANTUM PRESSURE ###
             #if self.turnOffDiffusion is False:
@@ -787,7 +713,98 @@ class PPMScheme(PhaseScheme):
             ### COMPUTE OSHER-SETHIAN-FLUX ###
 
             if self.turnOffConvection is False:
+                vp2 = fd.getF3Gradient(phase, dxi, axis = i)
+                vm2 = fd.getB3Gradient(phase, dxi, axis = i)
                 #Compute Osher-Sethian flux for phase
                 dphase += (np.minimum(vp2, 0)**2 + np.maximum(vm2, 0)**2)/2
 
         return -dt * self.eta * np.array([ddensity, dphase])
+
+
+
+class SplitPPMScheme(PhaseScheme):
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+        
+        self.eta1 = 20
+        self.eta2 = 0.05
+        self.epsilon = 0.01 
+
+        self.densityLimiter  = config["densityLimiter"]
+        self.velocityLimiter = config["velocityLimiter"]
+
+        print(f"Limiters: density = {self.densityLimiter} velocity = {self.velocityLimiter}")
+
+        self.vmax = 0
+        self.amax = 0
+        self.outputTimestep = False 
+
+    def getName(self):
+        return "ppm"
+
+    def getUpdatedFields(self, dt, fields, axis):
+        if self.outputTimestep:
+            print(f"dt = [dt] min density = [np.min(self.fields[0])] max density = [np.max(self.fields[0])]")
+
+        density, phase = fields
+
+        ddensity = np.zeros(density.shape)
+        dphase   = np.zeros(phase.shape)
+
+        sr = 0.5 * np.log(density)
+        
+        dxi     = self.dx
+        eta1    = self.eta1
+        eta2    = self.eta2
+        epsilon = self.epsilon 
+
+        self.vmax = 0
+        self.amax = 0
+        i = axis
+
+        sr = 0.5 * np.log(density)
+
+        v                    = fd.getC2Gradient(phase, dxi, axis = i)
+        vm2, vp2             = fd.computePPMInterpolation(v, dxi, i, eta1, eta2, epsilon, self.velocityLimiter)
+        density_L, density_R = fd.computePPMInterpolation(density, dxi, i, eta1, eta2, epsilon, self.densityLimiter)
+        density_L, density_R = fd.limitPPMGradients      (density, density_L, density_R, dxi, axis = i, limiter = self.densityLimiter)
+        fm                   = fd.computePPMFlux         (density, density_L, density_R, vm2, dxi, dt, axis = i)
+        fp                   = np.roll(fm, fd.ROLL_R, axis=i)
+        ddensity            += 1 / dxi * (fp - fm)
+
+        dphase -= 0.5 * (
+                fd.getC2Gradient(sr, dxi, axis = i)**2 
+              + fd.getC2Laplacian(sr, dxi, axis = i)
+            )
+
+        ### COMPUTE OSHER-SETHIAN-FLUX ###
+
+        if self.turnOffConvection is False:
+            vp2 = fd.getF3Gradient(phase, dxi, axis = i)
+            vm2 = fd.getB3Gradient(phase, dxi, axis = i)
+            #Compute Osher-Sethian flux for phase
+            dphase += (np.minimum(vp2, 0)**2 + np.maximum(vm2, 0)**2)/2
+
+        return -dt * self.eta * np.array([ddensity, dphase])
+
+
+    #Implement first to fourth order TVD-RK integrator by default
+    #Can be overwritten in children classes to implement different time integration
+    def step(self, dt):
+        if not self.usePeriodicBC:
+            self.setBoundaryConditions(self.fields)
+
+        #un = self.kick1(self.fields, dt)
+        un = self.fields
+
+        for i in range(self.dimension):
+            u1 = un + self.getUpdatedFields(dt, un, i)
+            u2 = 3 / 4 * un + 1 / 4 * u1 + self.getUpdatedFields(1/4 * dt, u1, i)
+            un = 1 / 3 * un + 2 / 3 * u2 + self.getUpdatedFields(2/3 * dt, u2, i)
+
+
+        self.fields = self.kick2(un, dt * 2)
+
+
+        self.t += dt * self.getScaleFactor() ** 2
