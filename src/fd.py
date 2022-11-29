@@ -337,12 +337,31 @@ def getForwardGradient(f, dx, axis):
     return f_dx
 
 def getB2Gradient(f, dx, axis):
-  f_dx = (3*f - 4*np.roll(f, ROLL_L, axis=axis) + np.roll(f, 2*ROLL_L, axis=axis)) / (2*dx)
-  return f_dx
+    fm  = np.roll(f, 1 * ROLL_L, axis=axis)
+    fmm = np.roll(f, 2 * ROLL_L, axis=axis)
+    f_dx = (3*f - 4*fm + fmm) / (2*dx)
+    return f_dx
 
 def getF2Gradient(f, dx, axis):
-  f_dx = (-np.roll(f, 2*ROLL_R, axis=axis) + 4*np.roll(f, ROLL_R, axis=axis) - 3*f) / (2*dx)
-  return f_dx
+    fp  = np.roll(f, 1 * ROLL_R, axis=axis)
+    fpp = np.roll(f, 2 * ROLL_R, axis=axis)
+    f_dx = (-fpp + 4*fp - 3*f) / (2*dx)
+    return f_dx
+
+
+def getB3Gradient(f, dx, axis):
+    fp   = np.roll(f, 1 * ROLL_R, axis=axis)
+    fm   = np.roll(f, 1 * ROLL_L, axis=axis)
+    fmm  = np.roll(f, 2 * ROLL_L, axis=axis)
+    f_dx = ( 1*fmm-6*fm+3*f+2*fp )/(6*1.0*dx**1)
+    return f_dx
+
+def getF3Gradient(f, dx, axis):
+    fm  = np.roll(f, 1 * ROLL_L, axis=axis)
+    fp  = np.roll(f, 1 * ROLL_R, axis=axis)
+    fpp = np.roll(f, 2 * ROLL_R, axis=axis)
+    f_dx = (-2*fm -3*f+6*fp-1*fpp)/(6*1.0*dx**1)
+    return f_dx
 
 
 def getCenteredGradient(f, dx, axis):
@@ -426,7 +445,7 @@ def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False, eta = 
   return A, b
 
 
-def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, fix1, fix2, fix3 = False): 
+def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter): 
     a = field 
 
     #rho_i+1
@@ -452,20 +471,15 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, fix1, fix2, f
     ### Face-centered density approximations obtained via parabolic interpolation
     ### Yields continuous approximation to density 
     #rho_i+1/2
-    if fix3:
+    if (limiter == 0):
         ap2 = 7/12 * ( a + ap ) - 1/12 * ( app + am )
     else:
         ap2 = a + 1/2 * ( ap - a ) - 1/6 * (delta_mp - delta_m)
 
-    #rho_i-1/2
-    am2 = np.roll(ap2, ROLL_L, axis = axis) 
-
-    ### Face-centered density approximations that take into account monotonicity
-    ### Potentially discontinuous, shock-resolving approximation to density
     a_R = ap2
-    a_L = am2
+    a_L = np.roll(ap2, ROLL_L, axis=axis)
 
-    if fix1: 
+    if (limiter >= 2):
         ### Switch to different interpolation if we detect discontinuities in a 
 
         # Second derivative as measure for discontinuities
@@ -490,7 +504,19 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, fix1, fix2, f
         a_L = a_L * ( 1 - eta ) + a_Ld * eta
         a_R = a_R * ( 1 - eta ) + a_Rd * eta
 
-    if fix2: 
+    return a_L, a_R 
+
+def limitPPMGradients(a, a_L, a_R, dxi, axis, limiter): 
+
+    #rho_i+1
+    ap  = np.roll(a,     ROLL_R, axis = axis) 
+    #rho_i-1
+    am  = np.roll(a,     ROLL_L, axis = axis)
+
+    ### Face-centered density approximations that take into account monotonicity
+    ### Potentially discontinuous, shock-resolving approximation to density
+
+    if (limiter == 3): 
         ### Set coefficients of the interpolating parabola such that it does not overshoot
         
         # 1. If a is local extremum, set the interpolation function to be constant
@@ -514,6 +540,28 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, fix1, fix2, f
 
     return a_L, a_R
 
+def computePPMFlux(a, a_L, a_R, v_L, dxi, dt, axis):
+    ### Free parameters in approximation polynomial 
+    ### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
+    ### where x = (xi - xi_p)/dxi
+    d_a =                  a_R - a_L 
+    a_6 = 6 * (a - 1/2 * ( a_R + a_L))
+
+    d_am = np.roll(d_a, ROLL_L, axis=axis)
+    a_6m = np.roll(a_6, ROLL_L, axis=axis)
+    a_Rm = np.roll(a_R, ROLL_L, axis=axis)
+   
+    ### Compute density fluxes at i+1/2 as seen by cells centered at i (fp_R) and i + 1 (fp_L)
+    x    =  + v_L * dt / dxi
+    fm_L = a_Rm - x/2 * (d_am  - ( 1 - 2/3 * x) * a_6m)
+
+    x    =  - v_L * dt / dxi
+    fm_R = a_L  + x/2 * (d_a   + ( 1 - 2/3 * x) * a_6 )
+
+    ### Enforce upwinding for density fluxes abar
+    fm = fm_L * np.maximum(v_L, 0) + fm_R * np.minimum(v_L, 0)
+
+    return fm
 
 def get_norm(rho, dx):
     # Normalise psi
