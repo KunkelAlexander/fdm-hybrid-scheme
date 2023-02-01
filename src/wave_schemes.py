@@ -56,6 +56,12 @@ class WaveScheme(schemes.SchroedingerScheme):
         f = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
         psi[self.boundary] = f[self.boundary]
 
+    def computeError(self):
+        psi_ref = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
+        l_infty_diff = np.max(np.abs(np.abs(self.psi[self.inner])**2 - np.abs(psi_ref[self.inner])**2))
+        l_infty_ref  = np.max(np.abs(psi_ref)**2)
+        return l_infty_diff/l_infty_ref 
+    
 class SpectralScheme(WaveScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
@@ -123,3 +129,55 @@ class CNScheme(WaveScheme):
 
     def getName(self):
         return "crank-nicolson scheme"
+    
+
+def LAP1(f, axis = 0):
+    fm4 = np.roll(f, 4 * fd.ROLL_L, axis=axis)
+    fm3 = np.roll(f, 3 * fd.ROLL_L, axis=axis)
+    fm2 = np.roll(f, 2 * fd.ROLL_L, axis=axis)
+    fm1 = np.roll(f, 1 * fd.ROLL_L, axis=axis)
+    fp4 = np.roll(f, 4 * fd.ROLL_R, axis=axis)
+    fp3 = np.roll(f, 3 * fd.ROLL_R, axis=axis)
+    fp2 = np.roll(f, 2 * fd.ROLL_R, axis=axis)
+    fp1 = np.roll(f, 1 * fd.ROLL_R, axis=axis)
+    return 1.0/12.0 * ( - fm2 + 16.0*fm1 - 30.0*f - fp2 + 16.0*fp1 )
+
+def LAP2(f, axis = 0): 
+    fm4 = np.roll(f, 4 * fd.ROLL_L, axis=axis)
+    fm3 = np.roll(f, 3 * fd.ROLL_L, axis=axis)
+    fm2 = np.roll(f, 2 * fd.ROLL_L, axis=axis)
+    fm1 = np.roll(f, 1 * fd.ROLL_L, axis=axis)
+    fp4 = np.roll(f, 4 * fd.ROLL_R, axis=axis)
+    fp3 = np.roll(f, 3 * fd.ROLL_R, axis=axis)
+    fp2 = np.roll(f, 2 * fd.ROLL_R, axis=axis)
+    fp1 = np.roll(f, 1 * fd.ROLL_R, axis=axis)
+    return 1.0/144.0 * ( + fm4 - 32.0*fm3 + 316.0*fm2 - 992.0*fm1 + fp4 - 32.0*fp3 + 316.0*fp2 - 992.0*fp1 +  1414.0*f )
+
+class GAMERScheme(WaveScheme):
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+        
+    def drift(self, dt):
+        dx, u0 = self.dx, self.psi
+        _Eta = self.eta 
+        _dh  = 1/dx 
+        Taylor3_Coeff = 1/6
+        dT           = 0.5*dt*_Eta
+        _Eta2_dh     = 0.5*_dh*_Eta
+        Coeff1       = dT*_dh*_dh
+        Coeff2       = Taylor3_Coeff*Coeff1**2
+
+
+        re0 = np.real(u0)
+        im0 = np.imag(u0)
+
+        re1 = re0 - 0.5*Coeff1*LAP1( im0 ) - Coeff2*LAP2( re0 )
+        im1 = im0 + 0.5*Coeff1*LAP1( re0 ) - Coeff2*LAP2( im0 )
+
+        re2   = re0 - Coeff1*LAP1( im1 )
+        im2   = im0 + Coeff1*LAP1( re1 )
+
+        self.psi = re2 + 1j * im2
+
+    def getName(self):
+        return "gamer scheme"
