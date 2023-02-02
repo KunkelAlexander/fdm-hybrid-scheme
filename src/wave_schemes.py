@@ -56,12 +56,20 @@ class WaveScheme(schemes.SchroedingerScheme):
         f = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
         psi[self.boundary] = f[self.boundary]
 
-    def computeError(self):
+    def computeRelError(self):
         psi_ref = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
         l_infty_diff = np.max(np.abs(np.abs(self.psi[self.inner])**2 - np.abs(psi_ref[self.inner])**2))
         l_infty_ref  = np.max(np.abs(psi_ref)**2)
         return l_infty_diff/l_infty_ref 
     
+    def computeRMSError(self):
+        psi_ref = self.generateIC(*self.grid, self.dx, self.t, self.m, self.hbar)
+        d1 = np.abs(self.psi[self.inner])**2
+        d2 = np.abs(psi_ref[self.inner])**2
+        RMS = np.sqrt(np.sum((d1 - d2)**2))
+        RMS /= len(d1)
+        return RMS
+
 class SpectralScheme(WaveScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)

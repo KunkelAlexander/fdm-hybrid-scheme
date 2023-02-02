@@ -263,8 +263,7 @@ def create1DFrame(
             rms_error = 0
 
             if t != 0:
-                rms_error = computeTruncationError(
-                    solver, density, density_ref)
+                rms_error = solver.computeRMSError()
 
             density_relerr = np.abs(density - density_ref) / \
                 (density_ref + 1e-8 * (density_ref == 0))
