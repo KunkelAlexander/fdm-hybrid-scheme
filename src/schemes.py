@@ -86,18 +86,17 @@ class Scheme:
 
 
         # Set up simulation grid
-        N              = config["resolution"]
-        boxWidth       = config["domainSize"]
-        self.boxWidth  = boxWidth
-        self.innerN   = N
-        self.dx        = boxWidth / N
-
+        N                = config["resolution"]
+        self.L0, self.L1 = config["domainSize"]
+        self.boxWidth  = self.L1 - self.L0 # physical box width
+        self.innerN    = N
+        self.dx        = self.boxWidth / N
 
         #Handle ghost boundary
-        self.totalN  = self.innerN + 2 * self.ghostBoundarySize
-        N            = self.totalN
-        Ll           = -self.dx * self.ghostBoundarySize
-        Lh           = self.boxWidth + self.dx * self.ghostBoundarySize
+        self.totalN    = self.innerN + 2 * self.ghostBoundarySize
+        N              = self.totalN
+        Ll             = self.L0 - self.dx * self.ghostBoundarySize
+        Lh             = self.L1 + self.dx * self.ghostBoundarySize
 
         #Create 1D grid
         xlin = np.linspace(Ll, Lh, num=N + 1)  # Note: x=0 & x=1 are the same point!

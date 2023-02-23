@@ -170,6 +170,7 @@ def periodic2DGaussian(xx, yy, dx, t, m = 1, hbar = 1,  x0=5, y0=5, alpha=1.0 / 
 
 def twoWavePackets2D(xx, yy, dx, t, m = 1, hbar = 1,  alpha = 1/10, eps = 2):
     psi = eps + 0j
+    N = 10 
     for i in range(-N, N + 1):
         for j in range(-N, N + 1):
             psi += generate2DGaussian(4, 5, xx + L * i, yy + L * j, t, alpha)
@@ -235,3 +236,71 @@ def cosmological1D(x, dx, t, m = 1, hbar = 1, Lx=1, N=10, eps = 5e-3):
 
 def cosmological2D(x, y, dx, t, m = 1, hbar = 1, Lx=1, Ly=1, N=10, eps = 5e-3):
     return cosmological3D(x, y, 0, dx, t, m, hbar, Lx, Ly, Lx, N, eps)
+
+
+# Calculate the gradient by Richardson extrapolation (with periodic boundary condition)
+def GRAD(field, axis, h, order):
+    dim = list(field.shape)
+    dim.insert(0, order)
+    grad = np.zeros(tuple(dim))
+    for o in range(order):
+        interval = 2**(order-1-o)
+        grad[o] = (np.roll(field, -interval, axis=axis) - np.roll(field, interval, axis=axis)) / (2*interval)
+    for o in range(1,order):
+        grad[o:] = (4.**o*grad[o:]-grad[o-1:-1]) / (4.**o-1.)
+    return grad[-1]/h
+    
+# Physical Constant
+phidm_mass = 2e-23 #eV
+h_bar = 1.0545718e-34
+eV_to_kg = 1.78266192162790e-36
+Mpc_to_m = 3.0856776e22
+#####################################################################################################################
+
+
+def antisymmetricMode(x, y, dx, t, m = 1, hbar = 1, L = 1, N=10, eps = 0.2):
+
+    H0 = 100
+    box_length = L
+    factor = box_length*1000.
+    N = 2/dx
+    h = 1./N
+    k_factor = 2.*np.pi/N
+    box_length *= Mpc_to_m/(H0/100.) # meter
+    a = 1/t**2
+    a_c = 0.13
+    delta = 2 * a**(3/2) / a_c 
+    delta_dot = -3 * a**(1/2) / a_c * (-2) * t**(3)
+    rho_bar = 1 
+    kp = 2*np.pi/L
+    ka = 4 * np.pi /L
+    chi = x + eps / ( 2 * np.pi * ka ) * kp / ka * np.cos ( 2 * np.pi * kp * eps * Cx * Sy**2 )
+    Cy = np.cos(2 * np.pi * ka * y) 
+    Cx = np.cos(2 * np.pi * kp * chi) 
+    Sy = np.sin(2 * np.pi * ka * y) 
+    Sx = np.sin(2 * np.pi * kp * chi)
+    vx = + delta_dot / (2 * np.pi * kp) * Sx
+    vy = - delta_dot / (2 * np.pi * ka) * Sx * Sy * eps
+    rho = rho_bar / ( 1 + delta * Cx - delta * eps * ( Sx * Cy - 2 * np.pi * kp * eps * Cx * Sy**2))
+
+    # Calculate div(v)
+    vx_x = GRAD(vx, axis = 0, h=dx ,order=3)
+    vy_y = GRAD(vy, axis = 1, h=dx ,order=3)
+    v_div = vx_x + vy_y
+    v_div *= a*phidm_mass*eV_to_kg/h_bar
+    
+    # Do forward DFT
+    v_div_k = np.fft.rfftn(v_div)
+    # Do inverse Laplacian
+    kx, ky = np.arange(N), np.arange(N//2+1.)
+    kxx, kyy = np.meshgrid(kx, ky)
+    v_div_k /= 2.*(np.cos(k_factor*kxx)+np.cos(k_factor*kyy)-2.)
+    v_div_k[0,0,0] = 0.
+    # Do inverse DFT
+    phi_fft = np.fft.irfftn(v_div_k)
+    # Rescale to correct unit
+    phi_fft *= box_length/N**2
+    phi_fft -= phi_fft.min()
+  
+    return np.sqrt(rho) * np.exp(1 * phi_fft)
+

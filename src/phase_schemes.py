@@ -36,6 +36,19 @@ class PhaseScheme(schemes.SchroedingerScheme):
         #update potential
         self.potential = self.computePotential(fields[0])
 
+
+        self.vmax = 0
+        self.amax = 0
+
+        for i in range(self.dimension):
+            pc  = self.fields[1]
+            pp  = np.roll(pc, fd.ROLL_R, axis = i)
+            pm  = np.roll(pc, fd.ROLL_L, axis = i)
+
+            self.vmax += np.max(np.abs((pp - pm)/(2*self.dx)))
+            self.amax  = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
+
+
         #kick by dt/2
         fields[1] -= dt/2.0 * self.potential
         return fields
@@ -65,11 +78,11 @@ class PhaseScheme(schemes.SchroedingerScheme):
             pp  = np.roll(pc, fd.ROLL_R, axis = i)
             pm  = np.roll(pc, fd.ROLL_L, axis = i)
 
-            self.vmax = np.maximum(np.max(np.abs((pp - pm)/(2*self.dx))), self.vmax)
-            self.amax = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
+            self.vmax += np.max(np.abs((pp - pm)/(2*self.dx)))
+            self.amax  = np.maximum(np.max(np.abs((pp - 2*pc + pm)/(self.dx**2))), self.amax)
 
         t1 = self.C_parabolic    * self.dx**2/self.eta
-        t2 = self.C_velocity     * self.dx/(2 * self.dimension*(self.vmax + 1e-8)*self.eta)
+        t2 = self.C_velocity     * self.dx/(2 * (self.vmax + 1e-8)*self.eta)
         t3 = self.C_acceleration * (self.dx/(self.amax + 1e-8))**0.5
         if self.G > 0:
             t4 = self.C_potential    * self.hbar/np.max(np.abs(self.potential) + 1e-8)
@@ -156,7 +169,7 @@ class UpwindScheme(PhaseScheme):
         return "upwind scheme"
 
 #Get high-order upwind drift by dt
-def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0, limiter = schemes.FluxLimiters.VANLEER, limitHJ = True):
+def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1_coeff, c1_stencil, c1_coeff, c2_stencil, c2_coeff, inner = None, turnOffConvection = False, turnOffDiffusion = False, friction = 0.0, limiter = schemes.FluxLimiters.VANLEER, limitHJ = True, useThirdOrderForward = False):
     ddensity = np.zeros(density.shape)
     dphase   = np.zeros(phase.shape)
     vmax = 0
@@ -209,9 +222,14 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
             #Slope-limited downwind gradient of density
             vp = 1/dx * ( 1 + 0.5 * limiter(Qc) - 0.5 * limiter(Qr)/(Qr + (Qr==0) * 1e-8)) * (pp - pc)
         else:
-            #Arbitrary order gradients (no slope limiting)
-            vm = fd.getDerivative(pc, dx, b1_stencil, b1_coeff, axis = i)
-            vp = fd.getDerivative(pc, dx, f1_stencil, f1_coeff, axis = i)
+            if useThirdOrderForward:
+                vp = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dx**1)
+                vm = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dx**1)
+
+            else:
+                #Arbitrary order gradients (no slope limiting)
+                vm = fd.getDerivative(pc, dx, b1_stencil, b1_coeff, axis = i)
+                vp = fd.getDerivative(pc, dx, f1_stencil, f1_coeff, axis = i)
 
 
         ddensity += (fp - fm) / dx
@@ -229,10 +247,14 @@ def getHODrift(density, phase, dt, dx, eta, f1_stencil, f1_coeff, b1_stencil, b1
 class HOUpwindScheme(PhaseScheme):
     def __init__(self, config, generateIC):
         super().__init__(config, generateIC)
-        self.limitHJ = False
+        self.limitHJ      = config["limitHJ"]
+        self.centralOrder = config["centralOrder"]
+        self.useThirdOrderForward = config["useThirdOrderForward"]
+        self.c1_stencil, self.c1_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 1, accuracy = self.centralOrder, mode = fd.MODE_CENTERED)
+        self.c2_stencil, self.c2_coeff  = fd.getFiniteDifferenceCoefficients(derivative_order = 2, accuracy = self.centralOrder, mode = fd.MODE_CENTERED)
 
     def getUpdatedFields(self, dt, fields):
-        ddensity, dphase, vmax = getHODrift(fields[0], fields[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion, friction=self.friction, limiter = self.limiter, limitHJ = self.limitHJ)
+        ddensity, dphase, vmax = getHODrift(fields[0], fields[1], dt, self.dx, self.eta, self.f1_stencil, self.f1_coeff, self.b1_stencil, self.b1_coeff, self.c1_stencil, self.c1_coeff, self.c2_stencil, self.c2_coeff, turnOffConvection = self.turnOffConvection, turnOffDiffusion = self.turnOffDiffusion, friction=self.friction, limiter = self.limiter, limitHJ = self.limitHJ, useThirdOrderForward=self.useThirdOrderForward)
         return np.array([ddensity, dphase])
 
     def getName(self):
@@ -606,7 +628,7 @@ class PPMScheme(PhaseScheme):
         self.amax = 0
 
 
-        sr = 0.5 * np.log(density)
+        sr = 0.5 * np.log(np.maximum(density, 1e-8))
 
         for i in range(self.dimension):
 
@@ -808,3 +830,82 @@ class SplitPPMScheme(PhaseScheme):
 
 
         self.t += dt * self.getScaleFactor() ** 2
+
+
+
+class FrommScheme(PhaseScheme):
+    def __init__(self, config, generateIC):
+        super().__init__(config, generateIC)
+
+
+    def getUpdatedFields(self, dt, fields):
+        if self.outputTimestep:
+            print(f"min density = {np.min(self.fields[0])} max density = {np.max(self.fields[0])}")
+
+        density, phase = fields
+        dx = self.dx
+
+        ddensity = np.zeros(density.shape)
+        dphase   = np.zeros(phase.shape)
+        self.vmax = 0
+        self.amax = 0
+
+        sr = 0.5 * np.log(np.maximum(1e-7, density))
+
+        ## Classical friction term 
+        if self.friction > 0:
+            dphase += self.friction * (phase - np.mean(phase))
+
+        for i in range(self.dimension):
+            ### ROLL FIELDS ###
+
+            #Phase
+            pc  = phase
+            pp  = np.roll(phase,     fd.ROLL_R, axis = i)
+            ppp = np.roll(phase, 2 * fd.ROLL_R, axis = i)
+            pm  = np.roll(phase,     fd.ROLL_L, axis = i)
+            pmm = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+            p2m = np.roll(phase, 2 * fd.ROLL_L, axis = i)
+            
+            vp = (pp - pc)/dx 
+            vm = np.roll(vp, fd.ROLL_L, axis = i)
+
+            a  = (pp - 2*pc + pm)/dx**2
+            self.amax = np.maximum(np.max(np.abs(a)), self.amax)
+
+            #Density 
+            r   = density
+            rf  = np.roll(density,   fd.ROLL_R, axis = i)
+            rff = np.roll(density, 2*fd.ROLL_R, axis = i)
+            rb  = np.roll(density,   fd.ROLL_L, axis = i)
+            rbb = np.roll(density, 2*fd.ROLL_L, axis = i)
+
+            #Logarithm of density for quantum pressure
+            srp = np.roll(sr, fd.ROLL_R, axis = i)
+            srm = np.roll(sr, fd.ROLL_L, axis = i)
+
+            ### COMPUTE UPWIND-FLUX FOR DENSITY ###
+
+            fm =    np.maximum(vm, 0) * ( rb + 0.25 * (r - rbb) * (1 - vm * dt/dx)) \
+                  + np.minimum(vm, 0) * ( r  - 0.25 * (rf - rb) * (1 + vm * dt/dx))
+            fp = np.roll(fm, fd.ROLL_R, axis = i) 
+            
+            ddensity += (fp - fm) / dx
+
+            ### COMPUTE QUANTUM PRESSURE ###
+            if self.turnOffDiffusion is False:
+                dphase -= 0.5/dx**2 * (0.25 * (srp - srm)**2 + (srp - 2 * sr + srm))
+
+            ### COMPUTE OSHER-SETHIAN-FLUX ###
+
+            if self.turnOffConvection is False:
+                vp = (-2*pm -3*pc+6*pp-1*ppp)/(6*1.0*dx**1)
+                vm = ( 1*pmm-6*pm+3*pc+2*pp )/(6*1.0*dx**1)
+                #Compute Osher-Sethian flux for phase
+                dphase += (np.minimum(vp, 0)**2 + np.maximum(vm, 0)**2)/2
+
+        return -dt * self.eta * np.array([ddensity, dphase])
+
+
+    def getName(self):
+        return "fromm scheme"

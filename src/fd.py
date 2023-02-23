@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse
-import math 
-from   numba import njit 
-import matplotlib.pyplot as plt  
+import math
+from   numba import njit
+import matplotlib.pyplot as plt
 import scipy
 
 import sys
@@ -87,7 +87,7 @@ def make_1d_boundary_continuous(f, boundaryThickness):
 #def make_2d_boundary_continuous(f, boundaryThickness):
 #    Nx, Ny = np.array(f.shape) - 1
 #    bt = boundaryThickness
-#    
+#
 #    for i in range(bt):
 #        #Continuity along faces (4 * faces)
 #        make_1d_continuous(f[i   , :   ])
@@ -194,7 +194,23 @@ def getDerivative(f, dx, stencil, coeff, axis, derivative_order=1, debug=False):
     return f_dx / dx ** derivative_order
 
 
-
+def getSingleDerivative(f, j, dx, stencil, coeff, derivative_order=1, debug=False):
+    # directions for np.roll()
+    f_dx = 0
+    for i, shift in enumerate(stencil):
+        if debug:
+            print(
+                "Derivative order",
+                derivative_order,
+                "Order = ",
+                len(stencil) - 1,
+                "shift ",
+                shift,
+                " coefficient = ",
+                coeff[i],
+            )
+        f_dx += f[j + shift] * coeff[i]
+    return f_dx / dx ** derivative_order
 
 
 def getHOSqrtQuantumPressure(rho, dx, c1_stencil, c1_coeff, c2_stencil, c2_coeff):
@@ -374,12 +390,12 @@ def getCenteredLaplacian(f, dx, axis):
 
 def getC2Gradient(f, dx, axis):
     f_dx = 1/dx * ( - (1.0/12.0) * np.roll(f, 2*ROLL_R, axis) + (2.0/3.0) * np.roll(f, 1*ROLL_R, axis) - (2.0/3.0) * np.roll(f, 1*ROLL_L, axis) + (1.0/12.0) * np.roll(f, 2*ROLL_L, axis) )
-    return f_dx 
+    return f_dx
 
 def getC2Laplacian(f, dx, axis):
     f_dx = 1/dx**2 * ( - (1.0/12.0) * np.roll(f, 2*ROLL_L, axis) + (4.0/3.0) * np.roll(f, 1*ROLL_L, axis) - (5.0/2.0) * f   + (4.0/3.0) * np.roll(f, 1*ROLL_R, axis) - (1.0/12.0) * np.roll(f, 2*ROLL_R, axis) )
     return f_dx
-    
+
 def getQuantumPressure(rho, dx):
     logrho = np.log(rho)
     result = np.zeros(rho.shape)
@@ -397,7 +413,7 @@ def getUpwindFlux(up, um, rho, dx, axis):
   phi_u_p = np.maximum(up, 0) * rho                          + np.minimum(up, 0) * np.roll(rho, ROLL_R, axis=axis)
   #phi_i - 1/2, j
   phi_u_m = np.maximum(um, 0) * np.roll(rho, ROLL_L, axis=axis) + np.minimum(um, 0) * rho
-  
+
   phi =  (phi_u_p - phi_u_m) / dx
   return phi
 
@@ -445,18 +461,18 @@ def createKineticLaplacian(nx, dt, dx, debug = False, periodicBC = False, eta = 
   return A, b
 
 
-def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter): 
-    a = field 
+def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter):
+    a = field
 
     #rho_i+1
-    ap  = np.roll(a,     ROLL_R, axis = axis) 
+    ap  = np.roll(a,     ROLL_R, axis = axis)
     #rho_i+2
-    app = np.roll(a, 2 * ROLL_R, axis = axis) 
+    app = np.roll(a, 2 * ROLL_R, axis = axis)
     #rho_i-1
     am  = np.roll(a,     ROLL_L, axis = axis)
     #rho_i-2
     amm = np.roll(a, 2 * ROLL_L, axis = axis)
-    
+
 
     # Average slope of parabola
     delta_a = 1/2 * (ap - am)
@@ -469,7 +485,7 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter):
     delta_mp = np.roll(delta_m, ROLL_R, axis = axis)
 
     ### Face-centered density approximations obtained via parabolic interpolation
-    ### Yields continuous approximation to density 
+    ### Yields continuous approximation to density
     #rho_i+1/2
     if (limiter == 0):
         ap2 = 7/12 * ( a + ap ) - 1/12 * ( app + am )
@@ -480,7 +496,7 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter):
     a_L = np.roll(ap2, ROLL_L, axis=axis)
 
     if (limiter >= 2):
-        ### Switch to different interpolation if we detect discontinuities in a 
+        ### Switch to different interpolation if we detect discontinuities in a
 
         # Second derivative as measure for discontinuities
         d2_a  = 1/(6*dxi**2) * (ap - 2*a + am)
@@ -490,10 +506,10 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter):
         eta_bar = - ( (d2_ap - d2_am ) / ( 2 * dxi) ) * ( 2*dxi**3 / (ap - am) )
 
         cond1 = (-d2_ap * d2_am <= 0)
-        cond2 = (np.abs(ap - am) - epsilon * np.minimum(np.abs(ap), np.abs(am)) <= 0) 
+        cond2 = (np.abs(ap - am) - epsilon * np.minimum(np.abs(ap), np.abs(am)) <= 0)
 
         eta_bar[cond1] = 0
-        eta_bar[cond2] = 0 
+        eta_bar[cond2] = 0
 
         eta = np.maximum(0, np.minimum(eta1 * (eta_bar - eta2), 1))
 
@@ -504,26 +520,26 @@ def computePPMInterpolation(field, dxi, axis, eta1, eta2, epsilon, limiter):
         a_L = a_L * ( 1 - eta ) + a_Ld * eta
         a_R = a_R * ( 1 - eta ) + a_Rd * eta
 
-    return a_L, a_R 
+    return a_L, a_R
 
-def limitPPMGradients(a, a_L, a_R, dxi, axis, limiter): 
+def limitPPMGradients(a, a_L, a_R, dxi, axis, limiter):
 
     #rho_i+1
-    ap  = np.roll(a,     ROLL_R, axis = axis) 
+    ap  = np.roll(a,     ROLL_R, axis = axis)
     #rho_i-1
     am  = np.roll(a,     ROLL_L, axis = axis)
 
     ### Face-centered density approximations that take into account monotonicity
     ### Potentially discontinuous, shock-resolving approximation to density
 
-    if (limiter == 3): 
+    if (limiter == 3):
         ### Set coefficients of the interpolating parabola such that it does not overshoot
-        
+
         # 1. If a is local extremum, set the interpolation function to be constant
         cond = ((a_R - a)*(a - a_L) <= 0) # cond == True <-> a is local extremum
         a_L[cond] = a[cond]
         a_R[cond] = a[cond]
-        
+
         # 2. If a between a_R and a_L, but very close to them, the parabola might still overshoot
         cond = + (a_R - a_L)**2 / 6 < (a_R - a_L) * (a - 1/2 * (a_L + a_R))
         a_L[cond] = 3 * a[cond] - 2 * a_R[cond]
@@ -541,16 +557,16 @@ def limitPPMGradients(a, a_L, a_R, dxi, axis, limiter):
     return a_L, a_R
 
 def computePPMFlux(a, a_L, a_R, v_L, dxi, dt, axis):
-    ### Free parameters in approximation polynomial 
+    ### Free parameters in approximation polynomial
     ### a(xi) = a_L + x(d_a + a_6 ( 1 - x ))
     ### where x = (xi - xi_p)/dxi
-    d_a =                  a_R - a_L 
+    d_a =                  a_R - a_L
     a_6 = 6 * (a - 1/2 * ( a_R + a_L))
 
     d_am = np.roll(d_a, ROLL_L, axis=axis)
     a_6m = np.roll(a_6, ROLL_L, axis=axis)
     a_Rm = np.roll(a_R, ROLL_L, axis=axis)
-   
+
     ### Compute density fluxes at i+1/2 as seen by cells centered at i (fp_R) and i + 1 (fp_L)
     x    =  + v_L * dt / dxi
     fm_L = a_Rm - x/2 * (d_am  - ( 1 - 2/3 * x) * a_6m)

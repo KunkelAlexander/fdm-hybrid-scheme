@@ -1,5 +1,8 @@
 def getScaleFactor(time):
-    return (3 / 2 * time) ** (2 / 3)
+    return (3 / 2 * time) ** ( 2 / 3)
+
+def getDScaleFactor(time):
+    return (3 / 2 * time) ** (-1 / 3)
 
 def getTime(a):
     return a**(3/2) * 2/3

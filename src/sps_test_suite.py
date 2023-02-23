@@ -82,6 +82,21 @@ def upwindWithoutConvectionConfig(c):
 
 def hoUpwindConfig(c):
     c["stencilOrder"] = 2
+    c["timeOrder"] = 3
+    c["slowDown"] = 10
+
+def hoUpwindT2Config(c):
+    c["stencilOrder"] = 2
+    c["timeOrder"] = 2
+    c["slowDown"] = 10
+
+def hoUpwindT3Config(c):
+    c["stencilOrder"] = 2
+    c["timeOrder"] = 3
+    c["slowDown"] = 10
+
+def hoUpwindT4Config(c):
+    c["stencilOrder"] = 2
     c["timeOrder"] = 4
     c["slowDown"] = 10
 
@@ -107,6 +122,9 @@ def ppmConfig(c):
     c["densityLimiter"] = 2
     c["velocityLimiter"] = 0
 
+def frommConfig(c):
+    c["timeOrder"]    = 3
+    
 def lwUpwindConfig(c):
     c["stencilOrder"] = 2
     c["timeOrder"] = 1
@@ -213,7 +231,7 @@ def stabilityTestConfig(c):
 
 def accuracyTest1DConfig(c):
     c["usePeriodicBC"] = True
-    c["resolution"] = 8
+    c["resolution"] = 128
     N = 1
     k = 2*np.pi / (N * c["domainSize"])
     eta = 1
@@ -528,6 +546,7 @@ scheme_list = {
     "phase-ho-upwind without convection": [phase_schemes.HOUpwindScheme, hoUpwindWithoutConvectionConfig],
     "phase-lw-upwind": [phase_schemes.LaxWendroffUpwindScheme, lwUpwindConfig],
     "phase-ppm": [phase_schemes.PPMScheme, ppmConfig],
+    "phase-fromm": [phase_schemes.FrommScheme, frommConfig],
     "phase-ftcs-convective": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveConfig],
     "phase-ftcs-convective without diffusion": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveWithoutDiffusionConfig],
     "phase-ftcs-convective without convection": [phase_schemes.FTCSConvectiveScheme, ftcsConvectiveWithoutDiffusionConfig],
