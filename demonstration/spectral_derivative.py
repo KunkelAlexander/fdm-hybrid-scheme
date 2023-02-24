@@ -346,6 +346,8 @@ for i in range(0, MAX_SMOOTHING_ORDER):
     bstencils.append(bstencils_at_order_i)
     cstencils.append(cstencils_at_order_i)
 
+stencils      = [fstencils, cstencils, bstencils]
+stencil_names = ["forward", "centered", "backward"]
 
 def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, debug = False, fd_f_stencil = None, fd_c_stencil = None, fd_b_stencil = None):
 
