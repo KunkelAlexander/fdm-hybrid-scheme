@@ -54,7 +54,6 @@ def computeX(L0, L1, N):
     xx = np.arange(0, N) * dx + L0
     return xx, dx
 
-
 # Return representative sample and boundary indices for psi depending on boundary conditions bc_ind
 def selectBC(psi, bc_ind):
     Nx = len(psi)
@@ -399,6 +398,8 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
             elif derivative_mode == PERIODIC:
                 bc_l.append((i + 1, - getSingleDerivative( f, -rb - 1, dx, fd_b_stencil[i], i + 1) + getSingleDerivative( f,  lb    , dx, fd_f_stencil[i], i + 1)))
                 bc_r.append((i + 1, 0))
+                f0 = +f0 - f1
+                f1 = 0
             else:
                 raise ValueError(f"Unsupported derivative_mode {derivative_mode} in getShiftFunction!")
         bc_type=(bc_l, bc_r)
