@@ -2,22 +2,8 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 
-DCT1 = 1    # WSWS
-DCT2 = 2    # HSHS
-DCT3 = 3    # WSWA
-DCT4 = 4    # HSHA
-DST1 = 5    # WAWA
-DST2 = 6    # HAHA
-DST3 = 7    # WAWS
-DST4 = 8    # HAHS
-DFT1 = 9    # PERIODIC
-
-NN       = DCT1
-ND       = DCT3
-DN       = DST3
-DD       = DST1
-PERIODIC = DFT1
-
+from scipy.sparse.linalg import LinearOperator
+from scipy.sparse.linalg import gmres
 
 DCT1 = 1    # WSWS
 DCT2 = 2    # HSHS
@@ -35,8 +21,27 @@ DN       = DST3
 DD       = DST1
 PERIODIC = DFT1
 
-M_LINEAR    = 1
-M_NTH_ORDER = 2
+
+DCT1 = 1    # WSWS
+DCT2 = 2    # HSHS
+DCT3 = 3    # WSWA
+DCT4 = 4    # HSHA
+DST1 = 5    # WAWA
+DST2 = 6    # HAHA
+DST3 = 7    # WAWS
+DST4 = 8    # HAHS
+DFT1 = 9    # PERIODIC
+
+NN       = DCT1
+ND       = DCT3
+DN       = DST3
+DD       = DST1
+PERIODIC = DFT1
+
+M_LINEAR      = 1
+M_POLYNOMIAL  = 2
+M_PLANE_WAVE  = 3
+M_EVEN        = 4
 ONE_SIDED   = 1
 CENTRAL     = 2
 
@@ -348,6 +353,54 @@ for i in range(0, MAX_SMOOTHING_ORDER):
 stencils      = [fstencils, cstencils, bstencils]
 stencil_names = ["forward", "centered", "backward"]
 
+class PlaneWave:
+    def __init__(self, amplitudes, momenta):
+        self.amplitudes = amplitudes
+        self.momenta = momenta
+        self.omega   = self.momenta**2 / 2
+        self.N       = len(amplitudes)
+
+    def __call__(self, xx, derivative_order=0, t=0):
+        waves = []
+        sum   = 0
+        for i in range(self.N):
+            wave = self.amplitudes[i] * (1j * self.momenta[i])**derivative_order * np.exp(1j * (self.momenta[i] * xx - self.omega[i] * t))
+            waves.append(wave)
+            sum += wave
+        return sum
+
+def make_plane_wave_superposition(points, f, k0, bc_type = None):
+    if bc_type is None:
+        bc_type = ([], [])
+
+    N          = len(bc_type[0]) + 1
+
+    #All plane waves with a maximum momentum of k0/2
+    scaling = 1/2**np.arange(N)
+    positive_momenta = k0 * scaling
+    momenta    = np.array([-positive_momenta, positive_momenta]).flatten()
+
+    def operator(amplitudes):
+        A          = np.zeros((2 * N), complex)
+        for j in range(N):
+            A[2 * j    ] = np.sum(amplitudes * (1j * momenta)**j * np.exp(1j * momenta * points[0]))
+            A[2 * j + 1] = np.sum(amplitudes * (1j * momenta)**j * np.exp(1j * momenta * points[1]))
+        return A
+
+    b    = np.zeros(2 * N, dtype=complex)
+    b[0] = f[0]
+    b[1] = f[1]
+    for j in range(1, N):
+        b[2 * j    ] = bc_type[0][j-1][1]
+        b[2 * j + 1] = bc_type[1][j-1][1]
+
+
+    A       = LinearOperator((2 * N, 2 * N), matvec =  operator)
+    amplitudes, exitCode = gmres(A,  b, tol=1e-15)
+    return PlaneWave(amplitudes, momenta)
+
+
+
 def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, debug = False, fd_f_stencil = None, fd_c_stencil = None, fd_b_stencil = None):
 
     dx       = x [ 1 ] - x[ 0 ]
@@ -355,6 +408,7 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
     x1       = x [-1 - rb ]
     f0       = f [ 0 + lb ]
     f1       = f [-1 - rb ]
+    L        = x1 - x0
 
 
     lind = 0
@@ -368,7 +422,7 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
 
     if mode == M_LINEAR:
         N_columns = 1
-    elif mode == M_NTH_ORDER:
+    else:
         N_columns = 1 + N
         if fd_f_stencil is None:
             fd_f_stencil = fstencils[N - 1]
@@ -385,7 +439,8 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
         #Compute linear shift function
         slope = (f1 - f0) / (x1 - x0)
         B[0]  = f0 + slope * ( x - x0 )
-    elif mode == M_NTH_ORDER:
+        poly = 0
+    elif mode == M_POLYNOMIAL:
         bc_l = []
         bc_r = []
         for i in range(N):
@@ -403,6 +458,57 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
             else:
                 raise ValueError(f"Unsupported derivative_mode {derivative_mode} in getShiftFunction!")
         bc_type=(bc_l, bc_r)
+
+        if N == 0:
+            bc_type = None
+
+        poly  = scipy.interpolate.make_interp_spline([x0, x1], [f0, f1], k = 2 * N + 1, bc_type=bc_type, axis=0)
+        #print("Poly reality: ")
+        #print(poly(x0), f0)
+        #print(poly(x1), f1)
+        for i in range(N + 1):
+            B[i] = poly( x, i * 2)
+
+    elif mode == M_PLANE_WAVE:
+        bc_l = []
+        bc_r = []
+        for i in range(N):
+            if derivative_mode == CENTRAL:
+                bc_l.append((i + 1,   getSingleDerivative( f,  lb,     dx, fd_c_stencil[i], i + 1)))
+                bc_r.append((i + 1,   getSingleDerivative( f, -rb - 1, dx, fd_c_stencil[i], i + 1)))
+            elif derivative_mode == ONE_SIDED:
+                bc_l.append((i + 1,   getSingleDerivative( f,  lb    , dx, fd_f_stencil[i], i + 1)))
+                bc_r.append((i + 1,   getSingleDerivative( f, -rb - 1, dx, fd_b_stencil[i], i + 1)))
+            elif derivative_mode == PERIODIC:
+                bc_l.append((i + 1, - getSingleDerivative( f, -rb - 1, dx, fd_b_stencil[i], i + 1) + getSingleDerivative( f,  lb    , dx, fd_f_stencil[i], i + 1)))
+                bc_r.append((i + 1, 0))
+                f0 = +f0 - f1
+                f1 = 0
+            else:
+                raise ValueError(f"Unsupported derivative_mode {derivative_mode} in getShiftFunction!")
+        bc_type=(bc_l, bc_r)
+
+        if N == 0:
+            bc_type = None
+
+        poly  = make_plane_wave_superposition([x0, x1], [f0, f1], k0 = 2*np.pi/L, bc_type=bc_type)
+        #print("Poly reality: ")
+        #print(poly(x0), f0)
+        #print(poly(x1), f1)
+        for i in range(N + 1):
+            B[i] = poly( x, i * 2)
+
+    elif mode == M_EVEN:
+        bc_l = []
+        bc_r = []
+        for i in range(N):
+            if derivative_mode == ONE_SIDED:
+                bc_l.append(((i + 1) * 2,   getSingleDerivative( f,  lb    , dx, fd_f_stencil[i], (i + 1) * 2)))
+                bc_r.append(((i + 1) * 2,   getSingleDerivative( f, -rb - 1, dx, fd_b_stencil[i], (i + 1) * 2)))
+            else:
+                raise ValueError(f"Unsupported derivative_mode {derivative_mode} in getShiftFunction!")
+        bc_type=(bc_l, bc_r)
+        print(bc_type)
 
         if N == 0:
             bc_type = None
@@ -444,4 +550,4 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
         print(f"f[lb] = {f0} f[rb] = {f1} B[0][lb] = {B0}  B[0][rb] = {B1} homf[lb] = {h0} homf[rb] = {h1}")
 
 
-    return B [:,  lind : rind ]
+    return B [:,  lind : rind ], poly
