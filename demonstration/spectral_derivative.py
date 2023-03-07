@@ -42,6 +42,7 @@ M_LINEAR      = 1
 M_POLYNOMIAL  = 2
 M_PLANE_WAVE  = 3
 M_EVEN        = 4
+M_DISABLED    = 5
 ONE_SIDED   = 1
 CENTRAL     = 2
 
@@ -520,6 +521,9 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
         for i in range(N + 1):
             B[i] = poly( x, i * 2)
 
+    elif mode == M_DISABLED:
+        poly = 0
+        pass
     else:
         raise ValueError(f"Unsupported mode {mode} in getShiftFunction!")
 
