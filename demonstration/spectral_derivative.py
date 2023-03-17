@@ -43,6 +43,8 @@ M_POLYNOMIAL  = 2
 M_PLANE_WAVE  = 3
 M_EVEN        = 4
 M_DISABLED    = 5
+M_COSINE      = 6
+
 ONE_SIDED   = 1
 CENTRAL     = 2
 
@@ -401,6 +403,130 @@ def make_plane_wave_superposition(points, f, k0, bc_type = None):
     return PlaneWave(amplitudes, momenta)
 
 
+def fCosineDiffMat(order, dx):
+    s = order
+    mat = np.zeros((s, s), dtype=complex)
+    for k in range(1, s+1):
+        for j in range(1, s+1):
+            mat[j-1, k-1] = (j * dx)**k / np.math.factorial(k)
+
+    return mat
+
+def bCosineDiffMat(order, dx):
+    s = order
+    mat = np.zeros((s, s), dtype=complex)
+    for k in range(1, s+1):
+        for j in range(1, s+1):
+            mat[j-1, k-1] = (-j * dx)**k / np.math.factorial(k)
+
+    return mat
+
+def fCosineDiffVec(order, f):
+    diff = np.zeros(order, dtype=complex)
+    for j in range(1, order + 1):
+        diff[j-1] = f[j] - f[0]
+    return diff
+
+def bCosineDiffVec(order, f):
+    diff = np.zeros(order, dtype=complex)
+    for j in range(1, order + 1):
+        diff[j-1] = (f[-1-j] - f[-1])
+    return diff
+
+
+def iterativeRefinement(A, b, tolerance = 1e-9):
+    C = np.linalg.solve(A, b)
+    residual      = b - A @ C
+    residualError = np.sum(np.abs(residual))
+
+    iteration = 0
+    while residualError > 1000:
+        correction = np.linalg.solve(A, residual)
+        C += correction
+        residual = b - A @ C
+        residualError = np.sum(np.abs(residual))
+        iteration += 1
+        #print(f"After {iteration} iterations with residual error {residualError}")
+        if iteration > 100:
+            break
+
+    #print(f"Finished in {iteration} iterations with residual error {residualError}")
+    return C
+
+def shiftx(x):
+    return (x - x[0])/(x[-1] - x[0])
+
+def cosineDiffVec(order, f, Dl, Dr):
+    b = np.zeros(2*order, dtype=complex)
+    b[0] = f[ 0]
+    b[1] = f[-1]
+    for i in range(1, order):
+        b[i*2    ] = Dl[2*i-1]/(np.pi)**(2*i)
+
+    for i in range(1, order):
+        b[i*2 + 1] = Dr[2*i-1]/(np.pi)**(2*i)
+
+    return b
+
+def cosineDiffMat(order):
+    A = np.zeros((order*2, order*2), dtype=complex)
+    for i in range(order):
+        derivative  = 2 * i
+        for j in range(1, 2*order+1):
+            #Every derivative gives a factor of j -- j**derivative
+            #Every second derivative gives a minus sign -- (-1)**i
+            #Cosine evaluated at pi gives negative sign depending on wavelength -- (-1)**j
+            A[2*i  , j-1] = j**derivative * (-1)**i
+            A[2*i+1, j-1] = j**derivative * (-1)**i * (-1)**j
+
+    return A
+
+
+def reconstructCosine(C, x, derivative_order = 0, t = 0):
+    f = np.zeros(x.shape, dtype=complex)
+    L = x[-1] - x[0]
+    xeval = shiftx(x)
+    for k in range(1, len(C) + 1):
+        f += C[k-1] * (1j * k * np.pi / L) ** derivative_order * (np.exp(1j * (k * np.pi * xeval - (k*np.pi / L)**2 / 2 * t)) + np.exp(1j * (-k * np.pi * xeval - (k*np.pi / L)**2 / 2 * t)))/2
+
+    return f
+
+class CosineWave:
+    def __init__(self, C):
+        self.C = C
+
+    def __call__(self, xx, derivative_order=0, t = 0):
+        return reconstructCosine(self.C, xx, derivative_order, t = t)
+
+def getCosineShiftFunction(f, order, x):
+    xeval = shiftx(x)
+    dx = xeval[1] - xeval[0]
+
+    if 0:
+        A = fCosineDiffMat (order, dx)
+        b = fCosineDiffVec (order, f)
+        Dl = iterativeRefinement(A, b)
+
+        A = bCosineDiffMat (order, dx)
+        b = bCosineDiffVec (order,  f)
+
+        Dr = iterativeRefinement(A, b)
+    else:
+        Dl = np.zeros(order, dtype=complex)
+        Dr = np.zeros(order, dtype=complex)
+        for i in range(order):
+            Dl[i] = getSingleDerivative( f, 0    , dx, fstencils[order - 1][i], i + 1)
+            Dr[i] = getSingleDerivative( f, 0 - 1, dx, bstencils[order - 1][i], i + 1)
+
+
+    A = cosineDiffMat(int(order/2) + 1)
+    b = cosineDiffVec(int(order/2) + 1, f, Dl, Dr)
+    C = iterativeRefinement(A, b)
+
+
+    shift = reconstructCosine(C, xeval)
+    return shift, C
+
 
 def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, debug = False, fd_f_stencil = None, fd_c_stencil = None, fd_b_stencil = None):
 
@@ -463,12 +589,23 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
         if N == 0:
             bc_type = None
 
+
+        if 0:
+            for i in range(N):
+                print(f"{i+1}th derivative of f at left boundary:  {getSingleDerivative( f,  lb    , dx, fd_f_stencil[i], i + 1):3.3e}")
+                print(f"{i+1}th derivative of f at right boundary: {getSingleDerivative( f, -rb - 1, dx, fd_b_stencil[i], i + 1):3.3e}")
+
         poly  = scipy.interpolate.make_interp_spline([x0, x1], [f0, f1], k = 2 * N + 1, bc_type=bc_type, axis=0)
         #print("Poly reality: ")
         #print(poly(x0), f0)
         #print(poly(x1), f1)
         for i in range(N + 1):
             B[i] = poly( x, i * 2)
+
+        if 0:
+            for i in range(N):
+                print(f"{i+1}th derivative of hom at left boundary:  {getSingleDerivative( f-B[0],  lb    , dx, fd_f_stencil[i], i + 1):3.3e}")
+                print(f"{i+1}th derivative of hom at right boundary: {getSingleDerivative( f-B[0], -rb - 1, dx, fd_b_stencil[i], i + 1):3.3e}")
 
     elif mode == M_PLANE_WAVE:
         bc_l = []
@@ -498,6 +635,23 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
         #print(poly(x1), f1)
         for i in range(N + 1):
             B[i] = poly( x, i * 2)
+    elif mode == M_COSINE:
+
+        if 0:
+            for i in range(N):
+                print(f"{i+1}th derivative of f at left boundary:  {getSingleDerivative( f,  lb    , dx, fd_f_stencil[i], i + 1):3.3e}")
+                print(f"{i+1}th derivative of f at right boundary: {getSingleDerivative( f, -rb - 1, dx, fd_b_stencil[i], i + 1):3.3e}")
+
+        shift, C = getCosineShiftFunction(f, N, x)
+        poly = CosineWave(C)
+        for i in range(N + 1):
+            B[i] = poly( x, i * 2)
+
+
+        if 0:
+            for i in range(N):
+                print(f"{i+1}th derivative of hom at left boundary:  {getSingleDerivative( f-shift,  lb    , dx, fd_f_stencil[i], i + 1):3.3e}")
+                print(f"{i+1}th derivative of hom at right boundary: {getSingleDerivative( f-shift, -rb - 1, dx, fd_b_stencil[i], i + 1):3.3e}")
 
     elif mode == M_EVEN:
         bc_l = []
