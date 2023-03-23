@@ -440,7 +440,7 @@ def iterativeRefinement(A, b, tolerance = 1e-9):
     residualError = np.sum(np.abs(residual))
 
     iteration = 0
-    while residualError > 1000:
+    while residualError > tolerance:
         correction = np.linalg.solve(A, residual)
         C += correction
         residual = b - A @ C
@@ -502,23 +502,14 @@ def getCosineShiftFunction(f, order, x):
     xeval = shiftx(x)
     dx = xeval[1] - xeval[0]
 
-    if 0:
-        A = fCosineDiffMat (order, dx)
-        b = fCosineDiffVec (order, f)
-        Dl = iterativeRefinement(A, b)
+    A = fCosineDiffMat (order, dx)
+    b = fCosineDiffVec (order, f)
+    Dl = iterativeRefinement(A, b)
 
-        A = bCosineDiffMat (order, dx)
-        b = bCosineDiffVec (order,  f)
+    A = bCosineDiffMat (order, dx)
+    b = bCosineDiffVec (order,  f)
 
-        Dr = iterativeRefinement(A, b)
-    else:
-        Dl = np.zeros(order, dtype=complex)
-        Dr = np.zeros(order, dtype=complex)
-        for i in range(order):
-            Dl[i] = getSingleDerivative( f, 0    , dx, fstencils[order - 1][i], i + 1)
-            Dr[i] = getSingleDerivative( f, 0 - 1, dx, bstencils[order - 1][i], i + 1)
-
-
+    Dr = iterativeRefinement(A, b)
     A = cosineDiffMat(int(order/2) + 1)
     b = cosineDiffVec(int(order/2) + 1, f, Dl, Dr)
     C = iterativeRefinement(A, b)
@@ -709,3 +700,138 @@ def getShiftFunction(x, f, mode, derivative_mode, lb, rb, chop = True, N = 0, de
 
 
     return B [:,  lind : rind ], poly
+
+
+class FourierExtension:
+    def __init__(self, N, Ncoll, theta, chi, cutoff):
+        self.N, self.Ncoll, self.theta, self.chi, self.cutoff = N, Ncoll, theta, chi, cutoff
+        self.Meven = self.getFPICSUEvenMatrix(N, Ncoll, theta, chi)
+        self.Modd  = self.getFPICSUOddMatrix (N, Ncoll, theta, chi)
+
+        self.dx    = chi / (Ncoll - 1)
+        self.x     = np.arange(-Ncoll + 1, Ncoll) * self.dx
+
+        self.Meveninv  = self.invertRealM(self.Meven, cutoff)
+        self.Moddinv   = self.invertRealM(self.Modd,  cutoff)
+
+    def getX(self):
+        return self.x, self.dx
+
+    def getFPICSUEvenMatrix(self, N, Ncoll, theta, chi):
+        M  = np.zeros((Ncoll, N))
+        dx = chi / (Ncoll - 1)
+        for i in range(Ncoll):
+            for j in range(N):
+                #Collocation points uniformly distributed over the positive half
+                #of the physical interval x in [0, chi]
+                M[i, j] = np.cos(j * np.pi / theta * i * dx)
+        return M
+
+    def getFPICSUOddMatrix(self, N, Ncoll, theta, chi):
+        M = np.zeros((Ncoll, N))
+        dx = chi / (Ncoll - 1)
+        for i in range(Ncoll):
+            for j in range(N):
+                #Collocation points uniformly distributed over the positive half
+                #of the physical interval x in [0, chi]
+                M[i, j] = np.sin(j * np.pi / theta * i * dx)
+        return M
+
+    def invertRealM(self, M, cutoff):
+        U, s, Vh = scipy.linalg.svd(M)
+        sinv = np.zeros(M.T.shape)
+        for i in range(np.min(M.shape)):
+            if s[i] < cutoff:
+                sinv[i, i] = 0
+            else:
+                sinv[i, i] = 1/s[i]
+        return Vh.T @ sinv @ U.T
+
+
+    def rescaleToPhysical(self, x, getSlope = False):
+        a = x[0]
+        b = x[-1]
+        L = b -a
+        sx = ( x - a ) / L
+        sx = sx * (2*self.chi) - self.chi
+        if getSlope:
+
+            return sx, a * 2 * self.chi / L + self.chi, 2 * self.chi / L
+        else:
+            return sx
+
+    def rescaleToExtended(self, x):
+        a = x[0]
+        b = x[-1]
+        sx = ( x - a ) / ( b - a )
+        sx = sx * (2*self.theta) - self.theta
+        return sx
+
+
+    def convertToFourierCoeff(self, aodd, aeven):
+        k = np.arange(-self.N, self.N) * np.pi / self.theta
+        fhat = np.zeros(2*self.N, dtype=complex)
+
+        for j, (oddcoeff, evecoeff) in enumerate(zip(aodd, aeven)):
+            fhat[ j + self.N] +=   oddcoeff / (2j) + evecoeff / (2)
+            fhat[-j + self.N] += - oddcoeff / (2j) + evecoeff / (2)
+
+
+        return np.fft.ifftshift(fhat), np.fft.ifftshift(k)
+
+    def reconstructFourier(self, x, fhat):
+
+        rec  = np.zeros (   x.shape, dtype=complex)
+        ks   = np.fft.ifftshift(np.arange( -self.N, self.N) * np.pi / self.theta)
+
+        for k, coeff in zip(ks, fhat):
+            rec += coeff * np.exp(1j * (k * x))
+        return rec
+
+    def iterativeRefinement(self, M, Minv, f, threshold = 100, maxiter = 5):
+        a       = Minv @ f
+        r       = M @ a - f
+        counter = 0
+        while np.linalg.norm(r) > 100 * np.finfo(float).eps * np.linalg.norm(a) and counter < maxiter:
+            delta    = Minv @ r
+            a        = a - delta
+            r        = M @ a - f
+            counter += 1
+        return a
+
+    def computeExtension(self, f, Ni, threshold = 10, maxiter = 3):
+        refeven  = ((f + np.flip(f)).real/2)[self.Ncoll-1:]
+        refodd   = ((f - np.flip(f)).real/2)[self.Ncoll-1:]
+        imfeven  = ((f + np.flip(f)).imag/2)[self.Ncoll-1:]
+        imfodd   = ((f - np.flip(f)).imag/2)[self.Ncoll-1:]
+        aeven    = self.iterativeRefinement(self.Meven, self.Meveninv, refeven, threshold = threshold, maxiter = maxiter) + 1j * self.iterativeRefinement(self.Meven, self.Meveninv, imfeven, threshold = threshold, maxiter = maxiter)
+        aodd     = self.iterativeRefinement(self.Modd,  self.Moddinv,  refodd,  threshold = threshold, maxiter = maxiter) + 1j * self.iterativeRefinement(self.Modd,  self.Moddinv,  imfodd,  threshold = threshold, maxiter = maxiter)
+        fhat, k  = self.convertToFourierCoeff(aodd, aeven)
+        frec     = self.fourierInterpolation(fhat, Ni)
+        return frec, fhat
+
+    def evolve(self, f, dt, threshold = 10, maxiter = 3):
+        refeven  = ((f + np.flip(f)).real/2)[self.Ncoll-1:]
+        refodd   = ((f - np.flip(f)).real/2)[self.Ncoll-1:]
+        imfeven  = ((f + np.flip(f)).imag/2)[self.Ncoll-1:]
+        imfodd   = ((f - np.flip(f)).imag/2)[self.Ncoll-1:]
+        aeven    = self.iterativeRefinement(self.Meven, self.Meveninv, refeven, threshold = threshold, maxiter = maxiter) + 1j * self.iterativeRefinement(self.Meven, self.Meveninv, imfeven, threshold = threshold, maxiter = maxiter)
+        aodd     = self.iterativeRefinement(self.Modd,  self.Moddinv,  refodd,  threshold = threshold, maxiter = maxiter) + 1j * self.iterativeRefinement(self.Modd,  self.Moddinv,  imfodd,  threshold = threshold, maxiter = maxiter)
+        fhat, k  = self.convertToFourierCoeff(aodd, aeven)
+        frec     = self.reconstructFourier(self.x, fhat, dt)
+        return frec
+
+    def plotApproximationErorr(self, xext, forg, frec):
+        plt.title("Approximation error of f")
+        plt.yscale("log")
+        plt.plot(xext, np.abs(forg - frec))
+        plt.show()
+
+
+    def fourierInterpolation(self, fhat, Ni):
+        N = len(fhat)
+        Npad = int(Ni/2 - N/2)
+        ft   = np.fft.fftshift(fhat)
+        ft_pad = np.concatenate([np.zeros(Npad), ft, np.zeros(Npad)])
+        fint = scipy.fft.ifft(np.fft.fftshift(ft_pad), norm="forward")
+        return fint
