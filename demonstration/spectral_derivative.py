@@ -403,6 +403,93 @@ def make_plane_wave_superposition(points, f, k0, bc_type = None):
     return PlaneWave(amplitudes, momenta)
 
 
+class IPRReconstruction:
+    def __init__(self, x, lam = 1, cutoff = 100):
+        self.cutoff                 = cutoff
+        self.lam                    = lam
+        W                           = self.directW(self.shiftx(x), int(len(x)/2), lam)
+        self.p, self.l, self.u      = scipy.linalg.lu(W, permute_l=False)
+
+    def poly(self, N):
+        return scipy.special.chebyt(N)
+
+    def reconstruct(self, g):
+        f = np.poly1d([])
+        for l, coeff in enumerate(g):
+            f += coeff * self.poly(l)
+
+        return f
+
+    def __call__(self, x, order = 0):
+        return self.rec.deriv(order)((x - self.s)*self.c) * self.c**order
+
+
+    #Construct matrices T and V recursively for arbitrary lambda
+    def directW(self, x, N, lam):
+        # Even
+        W = np.zeros((2*N, 2*N), dtype=complex)
+
+        for l in range(2*N):
+            W[:, l] = scipy.fft.fft(self.poly(l)(x))
+
+        return W
+
+
+    def shiftx(self, x):
+        dx = x[1] - x[0]
+        self.a = x[0]
+        self.b = x[-1]
+        self.s = (self.a + self.b)/2
+        self.c = 1 / ((self.b - self.a)/2)
+        sx = (x - self.s) * self.c
+        return  sx
+
+    def gaussWithTruncation(self, A, B):
+        """
+        Solve Ax = B using Gaussian elimination and LU decomposition with truncation for stability of IPR
+        """
+        # LU decomposition with pivot
+        p, l, u = scipy.linalg.lu(A, permute_l=False)
+        return self.solveLUWithTruncation(B, p, l, u)
+
+
+    def compute(self, psi, p = None, l = None, u = None):
+        B = scipy.fft.fft(psi)
+
+        if p is None:
+            p = self.p
+        if l is None:
+            l = self.l
+        if u is None:
+            u = self.u
+
+        # forward substitution to solve for Ly = B
+        y = np.zeros(B.size, dtype=complex)
+        for m, b in enumerate((p.T @ B).flatten()):
+            y[m] = b
+            # skip for loop if m == 0
+            if m:
+                for n in range(m):
+                    y[m] -= y[n] * l[m,n]
+            y[m] /= l[m, m]
+
+        # truncation for IPR
+        c = np.abs(y) < self.cutoff * np.finfo(float).eps
+        y[c] = 0
+
+        # backward substitution to solve for y = Ux
+        x = np.zeros(B.size, dtype=complex)
+        lastidx = B.size - 1  # last index
+        for midx in range(B.size):
+            m = B.size - 1 - midx  # backwards index
+            x[m] = y[m]
+            if midx:
+                for nidx in range(midx):
+                    n = B.size - 1  - nidx
+                    x[m] -= x[n] * u[m,n]
+            x[m] /= u[m, m]
+        self.rec = self.reconstruct(x)
+
 def fCosineDiffMat(order, dx):
     s = order
     mat = np.zeros((s, s), dtype=complex)
@@ -502,14 +589,30 @@ def getCosineShiftFunction(f, order, x):
     xeval = shiftx(x)
     dx = xeval[1] - xeval[0]
 
-    A = fCosineDiffMat (order, dx)
-    b = fCosineDiffVec (order, f)
-    Dl = iterativeRefinement(A, b)
+    if 0:
+        A = fCosineDiffMat (order, dx)
+        b = fCosineDiffVec (order, f)
+        Dl = iterativeRefinement(A, b)
 
-    A = bCosineDiffMat (order, dx)
-    b = bCosineDiffVec (order,  f)
+        A = bCosineDiffMat (order, dx)
+        b = bCosineDiffVec (order,  f)
 
-    Dr = iterativeRefinement(A, b)
+        Dr = iterativeRefinement(A, b)
+    else:
+        Nrec = 16
+        lam = 1
+        lipr = IPRReconstruction(x[:Nrec])
+        lipr.compute(f[:Nrec])
+        ripr = IPRReconstruction(x[-Nrec:])
+        ripr.compute(f[-Nrec:])
+        Dl = []
+        Dr = []
+        for i in range(1, order + 1):
+            Dl.append(lipr(x[0], i))
+            Dr.append(ripr(x[-1], i))
+
+
+
     A = cosineDiffMat(int(order/2) + 1)
     b = cosineDiffVec(int(order/2) + 1, f, Dl, Dr)
     C = iterativeRefinement(A, b)
